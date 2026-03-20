@@ -12,7 +12,7 @@ DEBUG = os.getenv("DEBUG", "True").lower()
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
 
-
+AUTH_USER_MODEL = 'app.User' 
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,9 +22,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'api',
+    'app',
     'corsheaders',
     'drf_spectacular',
+    'django.contrib.postgres',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
@@ -40,7 +42,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'api.urls'
 
-# AUTH_USER_MODEL = 'app.User' 
+
 
 TEMPLATES = [
     {

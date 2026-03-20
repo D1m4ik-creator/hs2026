@@ -12,10 +12,11 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Токены для авторизации SimpleJWT и кастомной регистрации
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),# Обновление access токена с помощью refresh токена
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    # path("api/register/", RegistrationAPIView.as_view(), name="register"), # Регистрация
-    # path("api/logout/", LogoutAPIView.as_view(), name="logout"), # Выход
+    path("api/register/", RegisterAPIView.as_view(), name="register"), # Регистрация
+    path("api/logout/", LogoutAPIView.as_view(), name="logout"), # Выход
+    path("api/login/", LoginAPIView.as_view(), name="login"), # Вход
 
     # Документация
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
