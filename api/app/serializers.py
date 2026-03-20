@@ -40,3 +40,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     
 class LogoutSerializer(serializers.Serializer):
     refresh = serializers.CharField(help_text="Refresh токен, который нужно отозвать")
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'login', 'full_name', 'roles', 'data_registration']
