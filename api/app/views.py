@@ -1,4 +1,3 @@
-from django.db import models
 from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework import serializers
@@ -11,7 +10,7 @@ from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 
 from .serializers import *
-from .models import User, Role
+from .models import User
 
 
 class RegisterAPIView(APIView):
@@ -72,9 +71,9 @@ class LoginAPIView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, login=login, password=password)
-
-        if user is not None or User.is_deleted:
-            return Response("detail", "Неверный логин или пароль", status=status.HTTP_401_UNAUTHORIZED)
+        print(user is not None)
+        if user is None or User.is_deleted == False:
+            return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
         elif user:
             refresh = RefreshToken.for_user(user)
             return Response({

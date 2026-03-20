@@ -1,6 +1,7 @@
-from django.db import models, AbstractUser
+from django.db import models
+from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator
-
+from django.contrib.postgres.fields import ArrayField
 
 login_validator = RegexValidator(
     regex=r'^[a-zA-Z]+$',
@@ -12,20 +13,33 @@ fullname_validator = RegexValidator(
     message='ФИО должно содержать только русские буквы.'
 )
 
+class UserManager(BaseUserManager):
+    def create_user(self, login, full_name, password=None, **extra_fields):
+        if not login:
+            raise ValueError('Логин обязателен')
+        user = self.model(login=login, full_name=full_name, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
 
-class Role(models.Model):
-    ROLE_CHOICES = [
-        ('user', 'Пользователь'),
-        ('host', 'Ведущий'),
-        ('admin', 'Администратор'),
-    ]
-    name = models.CharField(max_length=20, choices=ROLE_CHOICES, unique=True)
+    def create_superuser(self, login, full_name, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
 
-    def __str__(self):
-        return self.name
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Суперпользователь должен иметь is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Суперпользователь должен иметь is_superuser=True.')
 
+        return self.create_user(login, full_name, password, **extra_fields)
+    
 
 class User(AbstractUser):
+    class Role(models.TextChoices):
+        USER = 'user', 'Пользователь'
+        HOST = 'host', 'Ведущий'
+        ADMIN = 'admin', 'Администратор'
+
     username = None
     email = None
     first_name = None
@@ -33,9 +47,13 @@ class User(AbstractUser):
 
     login = models.CharField(max_length=150, unique=True, validators=[login_validator])
     full_name = models.CharField(max_length=255, validators=[fullname_validator])
-    roles = models.ManyToManyField(Role, blank=True, related_name='users')
+    roles = ArrayField(models.CharField(max_length=20, choices=Role.choices), blank=True, default=list)
     is_deleted = models.BooleanField(default=False)
-    data_registration = models.DateTimeField(auto_now_add=True)
+
+    objects = UserManager()
+
+    USERNAME_FIELD = 'login'
+    REQUIRED_FIELDS = ['full_name']
 
     def soft_delete(self):
         self.is_deleted = True

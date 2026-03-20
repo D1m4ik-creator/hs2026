@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import User, Role
+from .models import User
 import re
 
 User = get_user_model()
@@ -12,7 +12,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     password_confirm = serializers.CharField(write_only=True)
 
     class Meta:
-        models = User
+        model = User
         fields = ["login", "full_name", "password", "password_confirm"]
 
     def validate(self, data):
@@ -26,14 +26,13 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        user_role = Role.objects.get(name='user')
 
         user = User.objects.create_user(
             login=validated_data.get('login'),
             full_name=validated_data.get('full_name'),
             password=validated_data['password'],
+            roles=[User.Role.USER]
         )
-        user.roles.add([user_role])
 
         return user
     
@@ -45,7 +44,7 @@ class LogoutSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'login', 'full_name', 'roles', 'data_registration']
+        fields = ['id', 'login', 'full_name', 'roles']
 
 class LoginRequestSerializer(serializers.Serializer):
     login = serializers.CharField()
