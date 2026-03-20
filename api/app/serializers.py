@@ -38,15 +38,46 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
         return user
     
-    
-class LogoutSerializer(serializers.Serializer):
-    refresh = serializers.CharField(help_text="Refresh токен, который нужно отозвать")
-
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'login', 'full_name', 'roles', 'avatar']
+        fields = ['id', 'login', 'full_name', 'roles', 'avatar', 'date_joined']
+
+class UserEditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['login', 'full_name', "avatar"]
+
+
+class UserChangePasswordSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+    password_confirm = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        password = serializers.CharField(write_only=True)
+        password_confirm = serializers.CharField(write_only=True)
+
+        if not re.match(r'^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?]+$', password):
+            raise serializers.ValidationError({"password": "Пароль должен содержать только латинские буквы, цифры и специальные символы."})
+        if password != password_confirm:
+            raise serializers.ValidationError({"password_confirm": "Пароли не совпадают."})
+        return data
+    
+    
+class AssignRoleSerializer(serializers.Serializer):
+    roles = serializers.ListField(
+        child=serializers.ChoiceField(choices=User.Role.choices),
+    )
+    def validate_roles(self, value):
+        if not value:
+            raise serializers.ValidationError("Нужно выбрать хотя бы одну роль.")
+        return value
+    
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField(help_text="Refresh токен, который нужно отозвать")
+
 
 class LoginRequestSerializer(serializers.Serializer):
     login = serializers.CharField()
@@ -61,3 +92,6 @@ class LoginSuccessSerializer(serializers.Serializer):
 
 class DetailMessageSerializer(serializers.Serializer):
     detail = serializers.CharField()
+
+
+
