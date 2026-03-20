@@ -1,6 +1,7 @@
 from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework import serializers
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -15,6 +16,7 @@ from .models import User
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
         tags=["Аутентификация"],
@@ -33,6 +35,7 @@ class RegisterAPIView(APIView):
                     "full_name": "Иванов Иван Иванович",
                     "password": "StrongPass123!",
                     "password_confirm": "StrongPass123!",
+                    "avatar": "(binary file)",
                 },
                 request_only=True,
             )

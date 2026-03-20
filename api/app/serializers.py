@@ -10,10 +10,11 @@ User = get_user_model()
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password_confirm = serializers.CharField(write_only=True)
+    avatar = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = User
-        fields = ["login", "full_name", "password", "password_confirm"]
+        fields = ["login", "full_name", "password", "password_confirm", "avatar"]
 
     def validate(self, data):
         password = data.get('password')
@@ -31,6 +32,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             login=validated_data.get('login'),
             full_name=validated_data.get('full_name'),
             password=validated_data['password'],
+            avatar=validated_data.get('avatar'),
             roles=[User.Role.USER]
         )
 
@@ -44,7 +46,7 @@ class LogoutSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'login', 'full_name', 'roles']
+        fields = ['id', 'login', 'full_name', 'roles', 'avatar']
 
 class LoginRequestSerializer(serializers.Serializer):
     login = serializers.CharField()
