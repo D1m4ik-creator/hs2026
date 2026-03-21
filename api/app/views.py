@@ -1,6 +1,7 @@
 from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework import serializers
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -11,10 +12,11 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 
 from .serializers import *
 from .models import User
-
+from .permissions import IsAdmin, IsHost, IsActiveUser
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @extend_schema(
         tags=["Аутентификация"],
@@ -33,6 +35,7 @@ class RegisterAPIView(APIView):
                     "full_name": "Иванов Иван Иванович",
                     "password": "StrongPass123!",
                     "password_confirm": "StrongPass123!",
+                    "avatar": "(binary file)",
                 },
                 request_only=True,
             )
@@ -71,7 +74,6 @@ class LoginAPIView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, login=login, password=password)
-        print(user is not None)
         if user is None or User.is_deleted == False:
             return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
         elif user:
@@ -113,3 +115,26 @@ class LogoutAPIView(APIView):
             return Response({"detail": "Успешный выход из системы."}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MediaFileUploadAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        tags=["Медиа"],
+        summary="Загрузка аудио файла",
+        description="Загружает аудио файл и создает MediaFile для последующего enqueue в вещание.",
+        request=MediaFileUploadSerializer,
+        responses={
+            201: MediaFileUploadSerializer,
+            400: OpenApiResponse(response=DetailMessageSerializer, description="Ошибка валидации"),
+            403: OpenApiResponse(response=DetailMessageSerializer, description="Недостаточно прав"),
+        },
+    )
+    def post(self, request):
+        serializer = MediaFileUploadSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            media = serializer.save()
+            return Response(MediaFileUploadSerializer(media).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

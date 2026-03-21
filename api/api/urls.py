@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import path
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -17,9 +19,13 @@ urlpatterns = [
     path("api/register/", RegisterAPIView.as_view(), name="register"), # Регистрация
     path("api/logout/", LogoutAPIView.as_view(), name="logout"), # Выход
     path("api/login/", LoginAPIView.as_view(), name="login"), # Вход
+    path("api/media/upload/", MediaFileUploadAPIView.as_view(), name="media_upload"), # Загрузка аудио
 
     # Документация
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
