@@ -148,3 +148,74 @@ class MessageSerializer(serializers.Serializer):
         model = Message
         fields = ['id', 'author_login', "text", "status", "created_at"]
         read_only_fields = ['id', 'author_login', 'created_at']
+
+
+class MessageListenerSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для слушателя — видит только свои сообщения.
+    """
+    class Meta:
+        model = Message
+        fields = ['id', 'text', 'status', 'created_at']
+        read_only_fields = ['status', 'created_at']
+
+
+class SendMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Message
+        fields = ['id', 'text', 'created_at', 'status']
+        read_only_fields = ['id', 'status', 'created_at']
+
+    def validate_text(self, value):
+        if not value.strip():
+            raise serializers.ValidationError('Сообщение не может быть пустым.')
+        return value.strip()
+
+
+class PlaylistPublicSerializer(serializers.ModelSerializer):
+    """Публичные плейлисты для слушателя"""
+    owner_login = serializers.CharField(source='owner.login', read_only=True)
+    tracks_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Playlist
+        fields = ['id', 'name', 'owner_login', 'tracks_count', 'created_at']
+
+    def get_tracks_count(self, obj):
+        return obj.items.count()
+
+
+class BroadcastListenerSerializer(serializers.ModelSerializer):
+    """Состояние эфира для слушателя"""
+    current_track = serializers.SerializerMethodField()
+    host_login = serializers.SerializerMethodField()
+    stream_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Broadcast
+        fields = [
+            'is_active', 'volume',
+            'current_track', 'host_login', 'stream_url'
+        ]
+
+    def get_current_track(self, obj):
+        if obj.current_item:
+            return obj.current_item.media.name
+        return None
+
+    def get_host_login(self, obj):
+        if obj.current_playlist:
+            owner = obj.current_playlist.owner
+            return {
+                'login': owner.login,
+                'full_name': owner.full_name,
+                'avatar': self.context['request'].build_absolute_uri(owner.avatar.url)
+                          if owner.avatar else None
+            }
+        return None
+
+    def get_stream_url(self, obj):
+        if obj.is_active and obj.current_item:
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.current_item.media.file.url)
+        return None

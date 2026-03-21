@@ -23,6 +23,33 @@ urlpatterns = [
     
     # Текущий пользователь
     path("api/me/", MeView.as_view(), name="me"),
+
+    # Медиатека
+    path('api/media/', MediaFileListAPIView.as_view()),
+    path('api/media/upload/', MediaFileUploadAPIView.as_view()),
+    path('api/media/<int:pk>/delete/', MediaFileDeleteAPIView.as_view()),
+
+    # Плейлисты
+    path('api/playlists/', PlaylistListCreateAPIView.as_view()),
+    path('api/playlists/<int:pk>/', PlaylistDetailAPIView.as_view()),
+    path('api/playlists/<int:pk>/items/', PlaylistAddItemAPIView.as_view()),
+    path('api/playlists/<int:pk>/items/<int:item_pk>/', PlaylistRemoveItemAPIView.as_view()),
+
+    # Эфир
+    path('api/broadcast/', BroadcastAPIView.as_view()),
+
+    # Сообщения ведущего
+    path('api/messages/', MessageListAPIView.as_view()),
+    path('api/messages/archive/', MessageArchiveAPIView.as_view()),
+    path('api/messages/<int:pk>/status/', MessageStatusAPIView.as_view()),
+
+    # Блок слушателя
+    path('api/listener/broadcast/', ListenerBroadcastAPIView.as_view()),
+    path('api/listener/playlists/', ListenerPlaylistsAPIView.as_view()),
+    path('api/listener/playlists/<int:pk>/', ListenerPlaylistDetailAPIView.as_view()),
+    path('api/listener/messages/', ListenerMessageListAPIView.as_view()),
+    path('api/listener/messages/send/', ListenerSendMessageAPIView.as_view()),
+
     # Документация
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

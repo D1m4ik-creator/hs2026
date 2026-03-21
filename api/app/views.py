@@ -226,3 +226,235 @@ class PlaylistListCreateAPIView(APIView):
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PlaylistDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get_object(self, pk, user):
+        return get_object_or_404(Playlist, pk=pk, owner=user)
+    
+    def get(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        return Response(PlayListSerializer(playlist).data)
+    
+    def put(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        serializer = PlayListSerializer(playlist, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        playlist.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class PlaylistAddItemAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def post(self, request, pk):
+        platlist = get_object_or_404(Playlist, pk=pk, owner=request.user)
+        media_id = request.data.get('media_id')
+        media = get_object_or_404(MediaFile, pk=media_id, owner=request.user, is_deleted=False)
+        next_order = platlist.items.count()
+        while platlist.items.filter(order=next_order).exists():
+            next_order += 1
+        item = PlayListItem.objects.create(playlist=platlist, media=media, order=next_order)
+        return Response(PlayListItemSerializer(item).data, status=status.HTTP_201_CREATED)
+    
+
+class PlaylistRemoveItemAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def delete(self, request, pk, item_id):
+        playlist = get_object_or_404(Playlist, pk=pk, owner=request.user)
+        item = get_object_or_404(PlayListItem, pk=item_id, playlist=playlist)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+# Вещание
+class BroadcastAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def _get_broadcast(self):
+        broadcast, _ = Broadcast.objects.get_or_create(pk=1)
+        return broadcast
+
+    def get(self, request):
+        broadcast = self._get_broadcast()
+        data = BroadCastSerializer(broadcast).data
+
+        # Добавляем URL текущего трека
+        if broadcast.is_active and broadcast.current_item:
+            media = broadcast.current_item.media
+            data['stream_url'] = request.build_absolute_uri(media.file.url)
+            data['current_track'] = media.name
+        else:
+            data['stream_url'] = None
+            data['current_track'] = None
+
+        return Response(data)
+
+    def patch(self, request):
+        broadcast = self._get_broadcast()
+        serializer = BroadCastSerializer(broadcast, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            # Включаем эфир
+            turning_on = request.data.get('is_active') and not broadcast.is_active
+            if turning_on:
+                playlist = broadcast.current_playlist
+                if playlist and playlist.is_shufle:  # опечатка в модели — is_shufle
+                    items = list(playlist.items.all())
+                    random.shuffle(items)
+                    for i, item in enumerate(items):
+                        item.order = i
+                        item.save(update_fields=['order'])
+                serializer.save(started_at=timezone.now())
+            else:
+                serializer.save()
+
+            return Response(BroadCastSerializer(broadcast).data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# Сообщения со стороны host
+class MessageListAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        messages = Message.objects.exclude(status=Message.Status.DONE)
+        return Response(MessageSerializer(messages, many=True).data)
+
+
+class MessageArchiveAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        messages = Message.objects.filter(status=Message.Status.DONE)
+        return Response(MessageSerializer(messages, many=True).data)
+
+
+class MessageStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def patch(self, request, pk):
+        message = get_object_or_404(Message, pk=pk)
+        new_status = request.data.get('status')
+
+        if new_status not in Message.Status.values:
+            return Response(
+                {'detail': f'Допустимые статусы: {Message.Status.values}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        message.status = new_status
+        message.save(update_fields=['status'])
+
+        # Оповещаем слушателя об изменении статуса его сообщения
+        if message.author:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'user_{message.author.id}_messages',
+                {
+                    'type': 'status_update',
+                    'message_id': message.id,
+                    'status': new_status
+                }
+            )
+
+        return Response(MessageSerializer(message).data)
+
+
+# Блок слушателя
+
+class ListenerBroadcastAPIView(APIView):
+    """
+    Текущее состояние эфира для слушателя.
+    Возвращает stream_url, данные ведущего, текущий трек.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        broadcast, _ = Broadcast.objects.get_or_create(pk=1)
+        serializer = BroadcastListenerSerializer(
+            broadcast, context={'request': request}
+        )
+        return Response(serializer.data)
+
+
+class ListenerPlaylistsAPIView(APIView):
+    """
+    Список всех плейлистов — слушатель видит плейлисты всех ведущих.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        playlists = Playlist.objects.filter(
+            owner__is_deleted=False
+        ).order_by('-created_at')
+        serializer = PlaylistPublicSerializer(playlists, many=True)
+        return Response(serializer.data)
+    
+
+class ListenerPlaylistDetailAPIView(APIView):
+    """Детали плейлиста — треки внутри"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        playlist = get_object_or_404(
+            Playlist, pk=pk, owner__is_deleted=False
+        )
+        serializer = PlayListSerializer(playlist)
+        return Response(serializer.data)
+
+class ListenerMessageListAPIView(APIView):
+    """
+    Слушатель видит ТОЛЬКО свои сообщения с их статусами.
+    Статусы: new (отправлено), in_progress (читает ведущий), done (обработано).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        messages = Message.objects.filter(
+            author=request.user
+        ).order_by('created_at')
+        serializer = MessageListenerSerializer(messages, many=True)
+        return Response(serializer.data)
+    
+class ListenerSendMessageAPIView(APIView):
+    """Слушатель отправляет текстовое сообщение ведущему"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = SendMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            message = Message.objects.create(
+                author=request.user,
+                text=serializer.validated_data['text'],
+                status=Message.Status.NEW
+            )
+
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'host_messages',
+                {
+                    'type': 'new_message',
+                    'message': MessageSerializer(message).data
+                }
+            )
+
+            return Response(
+                MessageListenerSerializer(message).data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
