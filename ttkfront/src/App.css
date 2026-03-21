@@ -7,12 +7,40 @@
   padding: 0;
 }
 
+.container {
+    max-width: 1360px;
+    margin: 0 auto;
+}
+
+body {
+    background-color: black;
+    color: white;
+}
+
+/* Reg/Auth applications */
+
+.container-auth {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding-top: 100px   ;
+}
+
+.reg-auth {
+    background-image: url(assets/intro-bg.png);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    height: 100vh;
+}
+
 .reg-auth-block {
     max-width: 670px;
     background-color: #171616E5;
     border-radius: 5px;
     color: white;
     padding: 40px 20px;
+    flex-basis: 670px; 
 }
 
 
@@ -109,4 +137,52 @@
 
 #have-account a {
     color: white;
+}
+
+/* Promo */
+
+#promo {
+    background-image: url(assets/promo.png);
+    height: 100vh;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.container-promo {
+    width: 500px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* align-items: center; */
+
+} */
+
+.container-promo img {
+    min-width: 100px;
+}
+
+.container-promo p {
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.container-promo a {
+    width: auto;
+    max-width: 540px;
+    text-decoration: none;
+    color: white;
+
+}
+
+#start-listening-promo {
+    height: 58px;
+    background-color: #E52813;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "Bebas Neue Cyrillic";
+    font-size: 28px;
+    border-radius: 5px;
 }
