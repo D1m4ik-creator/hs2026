@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import React, { useRef } from "react";
+import React, {useState} from 'react';
+import { useRef } from "react";
 import photo from "../assets/photo-registration.png"
 
 function Registration(){
@@ -8,6 +9,40 @@ function Registration(){
     const handleClick = () => {
     fileInputRef.current.click();
     };
+    const [login, setLogin] = useState("");
+    const [fullName, setFullName] = useState("");
+    const [password, setPassword] = useState("");
+    const [password_confirm, setPasswordConfirm] = useState("");
+
+
+    function handleLogin(event){
+        setLogin(event.target.value);
+    }
+
+    function handleFullName(event){
+        setFullName(event.target.value);
+    }
+
+    function handlePassword(event){
+        setPassword(event.target.value);
+    }
+
+    function handlePasswordConfirm(event){
+        setPasswordConfirm(event.target.value);
+    }
+
+    function buttonSubmit(){
+        fetch('http://127.0.0.1:8000/api/register/', {
+            method: 'POST', headers: {
+                'Content-Type': 'application/json' 
+            }, body: JSON.stringify({ // Тело запроса
+                login: login,
+                full_name: fullName,
+                password: password,
+                password_confirm: password_confirm
+            })
+        })
+    }
 
     return(<>
         <div className='reg-auth-block'>
@@ -16,7 +51,7 @@ function Registration(){
                 <Link to="/auth">Войти в аккаут</Link>
             </div>
             <p id='small-text-registr'>Эфир уже ждёт. Подключайся</p>
-            <form action="" method="post">
+            <form action={() => buttonSubmit()}>
 
                 <div id='input_file_name'>
                     <input type="file" ref={fileInputRef} style={{ display: "none" }}/>
@@ -24,24 +59,24 @@ function Registration(){
 
                     <span className='registration_input'>
                         <label>ФИО</label>
-                        <input type="text" placeholder='Иванов Иван Иванович'/>
+                        <input type="text" placeholder='Иванов Иван Иванович' onChange={handleFullName}/>
                     </span>
                 </div>
 
                 <div className='registration_input'>
                     <label>ЛОГИН</label>
-                    <input type="text" placeholder='user'/>
+                    <input type="text" placeholder='user' onChange={handleLogin}/>
                 </div>
 
                 <div className='registration_input'>
                     <label>ПАРОЛЬ</label>
-                    <input type="password" placeholder='********'/>
+                    <input type="password" placeholder='********' onChange={handlePassword}/>
                     {/* <button>Показать</button> */}
                 </div>
 
                 <div className='registration_input'>
                     <label>ПАРОЛЬ ЕЩЁ РАЗ</label>
-                    <input type="password" placeholder='********'/>
+                    <input type="password" placeholder='********' onChange={handlePasswordConfirm}/>
                     {/* <button>Показать</button> */}
                 </div>
 
