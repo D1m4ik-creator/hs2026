@@ -4,13 +4,12 @@ import { API_BASE } from '../config'
 
 
 function Index() {
-    const token = localStorage.getItem('token');
-    const [user, setUser] = useState();
+    const token = localStorage.getItem('access') || localStorage.getItem('token');
+    const [, setUser] = useState();
     const navigate = useNavigate();
     
     useEffect(() => {
         if (!token) {
-            console.log("Токена нет → не делаем запрос");
             navigate('/login')
             return;
         }
@@ -27,10 +26,8 @@ function Index() {
         })
         .then(data => setUser(data))
         .catch(err => console.error('Ошибка:', err));
-    }, [])
+    }, [navigate, token])
 
-
-    console.log(user)
     return(<>
 
     </>)

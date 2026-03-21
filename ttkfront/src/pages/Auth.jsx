@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom'
-import React from 'react';
-import { useRef } from "react";
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import logo_img from '../assets/logo.png'
 import { API_BASE } from '../config'
 
@@ -10,7 +8,6 @@ function Auth(){
     const navigate = useNavigate();
     const [login, setLogin] = useState("");
     const [password, setPassword] = useState("");
-    const[IsAuthenticated, setIsAuthenticated] = useState(false)
 
 
     function handleLogin(event){
@@ -38,7 +35,6 @@ function Auth(){
             localStorage.setItem('token', data.access);
             localStorage.setItem('access', data.access);
             localStorage.setItem('user', JSON.stringify(data.user || {}));
-            setIsAuthenticated(true);
             const roles = data.user.roles
             if (roles.includes('host') || roles.includes('admin')) {
                 navigate('/host')
@@ -51,6 +47,11 @@ function Auth(){
         }
     };
 
+    const handleSubmit = (event) => {
+        event.preventDefault()
+        void login_user()
+    }
+
     return(<>
         <div className='reg-auth'>
             <div className="container container-auth">
@@ -61,7 +62,7 @@ function Auth(){
                         <Link to="/reg">Создать аккаут</Link>
                     </div>
                     <p id='small-text-registr'>Эфир уже ждёт. Подключайся</p>
-                    <form action={() => login_user()}>
+                    <form onSubmit={handleSubmit}>
                         <div className='registration_input'>
                             <label>ЛОГИН</label>
                             <input type="text" placeholder='user' onChange={handleLogin}/>
@@ -83,46 +84,3 @@ function Auth(){
 }
 
 export default Auth
-
-// import { useState, useEffect } from 'react';
-// import { useNavigate } from 'react-router-dom';
-
-// export function useAuth() {
-//   const navigate = useNavigate();
-//   const [isAuthenticated, setIsAuthenticated] = useState(false);
-//   const [loading, setLoading] = useState(true);
-
-//   useEffect(() => {
-//     const token = localStorage.getItem('token');
-//     setIsAuthenticated(!!token);
-//     setLoading(false);
-//   }, []);
-
-
-
-//   const logout = () => {
-//     localStorage.removeItem('token');                      // ← удаляем
-//     setIsAuthenticated(false);
-//     navigate('/login');
-//   };
-
-//   // Добавляем токен ко всем запросам (если используете fetch)
-//   const fetchWithToken = async (url: string, options: RequestInit = {}) => {
-//     const token = localStorage.getItem('token');
-//     const headers = {
-//       ...options.headers,
-//       Authorization: token ? `Bearer ${token}` : '',
-//       'Content-Type': 'application/json',
-//     };
-
-//     return fetch(url, { ...options, headers });
-//   };
-
-//   return {
-//     isAuthenticated,
-//     loading,
-//     login,
-//     logout,
-//     fetchWithToken,
-//   };
-// }

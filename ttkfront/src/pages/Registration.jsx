@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
-import React, {useState} from 'react';
-import { useRef } from "react";
+import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import photo from "../assets/photo-registration.png"
 import logo_img from '../assets/logo.png'
 import { API_BASE } from '../config'
 
 
 function Registration(){
+    const navigate = useNavigate()
     const fileInputRef = useRef(null);
 
     const handleClick = () => {
@@ -16,7 +17,7 @@ function Registration(){
     const [fullName, setFullName] = useState("");
     const [password, setPassword] = useState("");
     const [password_confirm, setPasswordConfirm] = useState("");
-    const [photoFile, setPhoto] = useState();
+    const [photoFile, setPhoto] = useState(null);
 
 
     function handleLogin(event){
@@ -36,21 +37,41 @@ function Registration(){
     }
 
     function handlePhoto(event){
-        setPhoto(event.target.value);
-        console.log(event.target.value)
+        setPhoto(event.target.files?.[0] || null);
     }
 
-    function buttonSubmit(){
-        fetch(`${API_BASE}/register/`, {
-            method: 'POST', headers: {
-                'Content-Type': 'application/json' 
-            }, body: JSON.stringify({ // Тело запроса
-                login: login,
-                full_name: fullName,
-                password: password,
-                password_confirm: password_confirm
-            })
+    async function buttonSubmit(){
+        const body = new FormData()
+        body.append('login', login)
+        body.append('full_name', fullName)
+        body.append('password', password)
+        body.append('password_confirm', password_confirm)
+
+        if (photoFile) {
+            body.append('avatar', photoFile)
+        }
+
+        const response = await fetch(`${API_BASE}/register/`, {
+            method: 'POST',
+            body,
         })
+
+        if (!response.ok) {
+            throw new Error('Ошибка регистрации')
+        }
+
+        navigate('/login')
+    }
+
+    const handleSubmit = async (event) => {
+        event.preventDefault()
+
+        try {
+            await buttonSubmit()
+        } catch (error) {
+            console.error(error)
+            alert(error)
+        }
     }
 
     return(<>
@@ -64,10 +85,10 @@ function Registration(){
                         <Link to="/login">Войти в аккаут</Link>
                     </div>
                     <p id='small-text-registr'>Эфир уже ждёт. Подключайся</p>
-                    <form action={() => buttonSubmit()}>
+                    <form onSubmit={handleSubmit}>
 
                         <div id='input_file_name'>
-                            <input type="file" ref={fileInputRef} style={{ display: "none" }} onClick={handlePhoto}/>
+                            <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={handlePhoto}/>
                             <div onClick={handleClick} id="input_file_name_img"><img src={photo} /></div>
 
                             <span className='registration_input'>
