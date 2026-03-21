@@ -3,7 +3,10 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer, AsyncWebsocke
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from urllib.parse import parse_qs
 import json
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.tokens import AccessToken
 
 from .models import Broadcast, BroadcastQueueItem, MediaFile, PlayListItem, Message
 from .serializers import MessageListenerSerializer
@@ -180,10 +183,16 @@ class BroadcastConsumer(AsyncJsonWebsocketConsumer):
 
 class MessageConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        user = self.scope['user']
-        if not user.is_authenticated:
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            token = self._extract_token_from_query()
+            user = await self.get_user_from_access_token(token) if token else None
+
+        if not user or not user.is_authenticated:
             await self.close()
             return
+
+        self.user = user
 
         # Ведущий и слушатели в разных группах
         self.host_group = 'host_messages'
@@ -196,12 +205,19 @@ class MessageConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, code):
-        await self.channel_layer.group_discard(self.host_group, self.channel_name)
-        await self.channel_layer.group_discard(self.user_group, self.channel_name)
+        if hasattr(self, 'host_group'):
+            await self.channel_layer.group_discard(self.host_group, self.channel_name)
+        if hasattr(self, 'user_group'):
+            await self.channel_layer.group_discard(self.user_group, self.channel_name)
 
     async def receive(self, text_data):
         """Слушатель отправляет сообщение"""
-        user = self.scope['user']
+        user = getattr(self, 'user', self.scope.get('user'))
+        if not user or not user.is_authenticated:
+            await self.send(json.dumps({'error': 'Требуется авторизация.'}))
+            await self.close()
+            return
+
         data = json.loads(text_data)
         text = data.get('text', '').strip()
 
@@ -249,3 +265,19 @@ class MessageConsumer(AsyncWebsocketConsumer):
             status=Message.Status.NEW
         )
         return MessageListenerSerializer(message).data
+
+    def _extract_token_from_query(self):
+        query_string = self.scope.get('query_string', b'').decode('utf-8')
+        query_params = parse_qs(query_string)
+        return (query_params.get('token') or [None])[0]
+
+    @database_sync_to_async
+    def get_user_from_access_token(self, token):
+        try:
+            validated_token = AccessToken(token)
+            user_id = validated_token.get('user_id')
+            if not user_id:
+                return None
+            return User.objects.filter(id=user_id, is_active=True).first()
+        except (TokenError, InvalidToken, ValueError, TypeError):
+            return None

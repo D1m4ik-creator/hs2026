@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import logo_img from '../assets/logo.png'
+import { API_BASE } from '../config'
 
 function Auth(){
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ function Auth(){
 
     const login_user = async () => {
         try {
-            const res = await fetch('http://127.0.0.1:8000/api/login/', {
+            const res = await fetch(`${API_BASE}/login/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ // Тело запроса
@@ -34,7 +35,9 @@ function Auth(){
             if (!res.ok) throw new Error('Ошибка входа');
 
             const data = await res.json();
-            localStorage.setItem('token', data.token);
+            localStorage.setItem('token', data.access);
+            localStorage.setItem('access', data.access);
+            localStorage.setItem('user', JSON.stringify(data.user || {}));
             setIsAuthenticated(true);
             const roles = data.user.roles
             if (roles.includes('host') || roles.includes('admin')) {

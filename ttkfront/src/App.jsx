@@ -9,20 +9,23 @@ import "./App.css"
 import HostPanel from './pages/HostPanel'
 
 export default function App() {
-  const token = localStorage.getItem('token');
-  const [startPage, setStartPage] = useState(<Promo />);
-  if (token){
-    setStartPage(<Index />)
+  const token = localStorage.getItem('access')
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+  const roles = user.roles || []
+
+  // Определяем куда редиректить авторизованного пользователя
+  const getHomePage = () => {
+    if (!token) return <Promo />
+    if (roles.includes('host') || roles.includes('admin')) return <HostPanel />
+    return <Index />
   }
 
   return (
-    <>
-      <Routes>
-        <Route path="/reg" element={<Registration />} />
-        <Route path="/login" element={<Auth />} />
-        <Route path="/" element={startPage} />
-        <Route path="/host" element={<HostPanel />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/" element={getHomePage()} />
+      <Route path="/reg" element={<Registration />} />
+      <Route path="/login" element={<Auth />} />
+      <Route path="/host" element={token ? <HostPanel /> : <Navigate to="/login" />} />
+    </Routes>
   )
 }

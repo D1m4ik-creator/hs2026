@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE } from '../config'
 
 
 function Index() {
@@ -13,7 +14,7 @@ function Index() {
             navigate('/login')
             return;
         }
-        fetch('http://127.0.0.1:8000/api/me/', {
+        fetch(`${API_BASE}/me/`, {
             method: 'GET',                         // или 'POST', 'PUT' и т.д.
             headers: {
                 'Authorization': `Bearer ${token}`,  // ← именно так

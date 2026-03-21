@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { API_BASE, API_ORIGIN, WS_ORIGIN } from '../config'
 
-const API = 'http://127.0.0.1:8000/api'
-const WS_URL = 'ws://127.0.0.1:8000/ws/messages'
+const API = API_BASE
+const WS_URL = `${WS_ORIGIN}/ws/messages`
 
 const api = async (path, options = {}) => {
   const token = localStorage.getItem('access')
@@ -135,7 +136,8 @@ export default function HostPanel() {
 
   const connectWS = useCallback(() => {
     const token = localStorage.getItem('access')
-    const ws = new WebSocket(`${WS_URL}/?token=${token}`)
+    const baseWsUrl = WS_URL.replace(/\/+$/, '')
+    const ws = new WebSocket(`${baseWsUrl}/?token=${encodeURIComponent(token || '')}`)
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data)
       if (data.type === 'new_message') {
@@ -284,7 +286,7 @@ export default function HostPanel() {
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {user.avatar && <img src={`http://127.0.0.1:8000${user.avatar}`} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />}
+          {user.avatar && <img src={`${API_ORIGIN}${user.avatar}`} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />}
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{user.full_name}</div>
             <div style={{ fontSize: 11, color: '#888' }}>@{user.login}</div>
@@ -318,7 +320,7 @@ export default function HostPanel() {
                       border: '2px solid #e53935',
                     }}>
                       {user.avatar
-                        ? <img src={`http://127.0.0.1:8000${user.avatar}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={`${API_ORIGIN}${user.avatar}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#555' }}>🎙</div>
                       }
                     </div>

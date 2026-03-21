@@ -3,6 +3,7 @@ import React, {useState} from 'react';
 import { useRef } from "react";
 import photo from "../assets/photo-registration.png"
 import logo_img from '../assets/logo.png'
+import { API_BASE } from '../config'
 
 
 function Registration(){
@@ -40,7 +41,7 @@ function Registration(){
     }
 
     function buttonSubmit(){
-        fetch('http://127.0.0.1:8000/api/register/', {
+        fetch(`${API_BASE}/register/`, {
             method: 'POST', headers: {
                 'Content-Type': 'application/json' 
             }, body: JSON.stringify({ // Тело запроса

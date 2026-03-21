@@ -8,7 +8,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-DEBUG = os.getenv("DEBUG", "True").lower()
+DEBUG = os.getenv("DEBUG", "True").lower() in ("1", "true", "yes", "on")
 
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if host.strip()]
 CORS_ALLOW_ALL_ORIGINS = True
@@ -142,7 +142,10 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [(
+                os.getenv("REDIS_HOST", "127.0.0.1"),
+                int(os.getenv("REDIS_PORT", "6379"))
+            )],
         },
     },
 }
