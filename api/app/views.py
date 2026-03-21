@@ -353,4 +353,108 @@ class MessageStatusAPIView(APIView):
 
         message.status = new_status
         message.save(update_fields=['status'])
+
+        # Оповещаем слушателя об изменении статуса его сообщения
+        if message.author:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'user_{message.author.id}_messages',
+                {
+                    'type': 'status_update',
+                    'message_id': message.id,
+                    'status': new_status
+                }
+            )
+
         return Response(MessageSerializer(message).data)
+
+
+# Блок слушателя
+
+class ListenerBroadcastAPIView(APIView):
+    """
+    Текущее состояние эфира для слушателя.
+    Возвращает stream_url, данные ведущего, текущий трек.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        broadcast, _ = Broadcast.objects.get_or_create(pk=1)
+        serializer = BroadcastListenerSerializer(
+            broadcast, context={'request': request}
+        )
+        return Response(serializer.data)
+
+
+class ListenerPlaylistsAPIView(APIView):
+    """
+    Список всех плейлистов — слушатель видит плейлисты всех ведущих.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        playlists = Playlist.objects.filter(
+            owner__is_deleted=False
+        ).order_by('-created_at')
+        serializer = PlaylistPublicSerializer(playlists, many=True)
+        return Response(serializer.data)
+    
+
+class ListenerPlaylistDetailAPIView(APIView):
+    """Детали плейлиста — треки внутри"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        playlist = get_object_or_404(
+            Playlist, pk=pk, owner__is_deleted=False
+        )
+        serializer = PlayListSerializer(playlist)
+        return Response(serializer.data)
+
+class ListenerMessageListAPIView(APIView):
+    """
+    Слушатель видит ТОЛЬКО свои сообщения с их статусами.
+    Статусы: new (отправлено), in_progress (читает ведущий), done (обработано).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        messages = Message.objects.filter(
+            author=request.user
+        ).order_by('created_at')
+        serializer = MessageListenerSerializer(messages, many=True)
+        return Response(serializer.data)
+    
+class ListenerSendMessageAPIView(APIView):
+    """Слушатель отправляет текстовое сообщение ведущему"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = SendMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            message = Message.objects.create(
+                author=request.user,
+                text=serializer.validated_data['text'],
+                status=Message.Status.NEW
+            )
+
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'host_messages',
+                {
+                    'type': 'new_message',
+                    'message': MessageSerializer(message).data
+                }
+            )
+
+            return Response(
+                MessageListenerSerializer(message).data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
