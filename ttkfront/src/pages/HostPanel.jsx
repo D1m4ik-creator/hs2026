@@ -103,6 +103,7 @@ export default function HostPanel() {
   const chatEndRef = useRef(null)
   const fileInputRef = useRef(null)
   const coverInputRef = useRef(null)
+  const audioRef = useRef(null)
 
   // ── Загрузка данных ──────────────────────────────────────
   useEffect(() => {
@@ -149,19 +150,31 @@ export default function HostPanel() {
   }, [])
 
   // ── Эфир ────────────────────────────────────────────────
-  const toggleBroadcast = async () => {
+    const toggleBroadcast = async () => {
     try {
       const updated = await api('/broadcast/', {
         method: 'PATCH',
         body: JSON.stringify({ is_active: !broadcast.is_active }),
       })
       setBroadcast(updated)
-    } catch {}
+
+      if (updated.is_active && updated.stream_url) {
+        audioRef.current.src = updated.stream_url
+        audioRef.current.volume = updated.volume ?? 1
+        audioRef.current.play().catch(err => console.error('play error:', err))
+      } else {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+      }
+    } catch (e) { console.error(e) }
   }
 
   const setVolume = async (v) => {
     setBroadcast(b => ({ ...b, volume: v }))
-    try { await api('/broadcast/', { method: 'PATCH', body: JSON.stringify({ volume: v }) }) } catch {}
+    if (audioRef.current) audioRef.current.volume = v
+    try {
+      await api('/broadcast/', { method: 'PATCH', body: JSON.stringify({ volume: v }) })
+    } catch {}
   }
 
   const setPlaylistForBroadcast = async (playlistId) => {
@@ -245,10 +258,13 @@ export default function HostPanel() {
     window.location.href = '/login'
   }
 
-  const activePlaylist = playlists.find(p => p.id === broadcast.current_playlist)
+  const activePlaylist = playlists.find(
+    p => p.id === Number(broadcast.current_playlist)
+  )
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0', fontFamily: "'Segoe UI', sans-serif" }}>
+      <audio ref={audioRef} style={{ display: 'none' }} />
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #1a1a1a; }

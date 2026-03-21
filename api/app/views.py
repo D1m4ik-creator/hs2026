@@ -298,17 +298,28 @@ class BroadcastAPIView(APIView):
             turning_on = request.data.get('is_active') and not broadcast.is_active
             if turning_on:
                 playlist = broadcast.current_playlist
-                if playlist and playlist.is_shuffle:
+                if not playlist:
+                    return Response(
+                        {'detail': 'Сначала выберите плейлист.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                if playlist.is_shuffle:
                     items = list(playlist.items.all())
                     random.shuffle(items)
                     for i, item in enumerate(items):
                         item.order = i
                         item.save(update_fields=['order'])
-                serializer.save(started_at=timezone.now())
+
+                # ← Устанавливаем первый трек как current_item
+                first_item = playlist.items.order_by('order').first()
+                serializer.save(
+                    started_at=timezone.now(),
+                    current_item=first_item  # ← главное исправление
+                )
             else:
                 serializer.save()
 
-            broadcast.refresh_from_db()  # ← всегда, не только при turning_on
+            broadcast.refresh_from_db()
             return Response(
                 BroadCastSerializer(broadcast, context={'request': request}).data
             )

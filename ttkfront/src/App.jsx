@@ -25,7 +25,7 @@ export default function App() {
       <Route path="/" element={getHomePage()} />
       <Route path="/reg" element={<Registration />} />
       <Route path="/login" element={<Auth />} />
-      <Route path="/host" element={token ? <HostPanel /> : <Navigate to="/login" />} />
+      <Route path="/host" element={<HostPanel />} />
     </Routes>
   )
 }
