@@ -43,6 +43,13 @@ urlpatterns = [
     path('api/messages/archive/', MessageArchiveAPIView.as_view()),
     path('api/messages/<int:pk>/status/', MessageStatusAPIView.as_view()),
 
+    # Блок слушателя
+    path('api/listener/broadcast/', ListenerBroadcastAPIView.as_view()),
+    path('api/listener/playlists/', ListenerPlaylistsAPIView.as_view()),
+    path('api/listener/playlists/<int:pk>/', ListenerPlaylistDetailAPIView.as_view()),
+    path('api/listener/messages/', ListenerMessageListAPIView.as_view()),
+    path('api/listener/messages/send/', ListenerSendMessageAPIView.as_view()),
+
     # Документация
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
