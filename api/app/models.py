@@ -1,7 +1,10 @@
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.contrib.postgres.fields import ArrayField
+import os
 
 login_validator = RegexValidator(
     regex=r'^[a-zA-Z]+$',
@@ -63,3 +66,103 @@ class User(AbstractUser):
     def __str__(self):
         return self.login
                                      
+def media_upload_path(instance, filename):
+    return f'media/user_{instance.owner.id}/{filename}'
+
+
+def validate_audio_file(file):
+    allowed = ['.mp3', '.wav', '.ogg']
+    ext = os.path.splitext(file.name)[1].lower()
+    if ext not in allowed:
+        raise ValidationError(f'Допустимые форматы: MP3, WAV, OGG.')
+    if file.size > 50 * 1024 * 1024:  # 50 MB
+        raise ValidationError('Максимальный размер файла — 50 МБ.')
+    
+class MediaFile(models.Model):
+    class MediaType(models.TextChoices):
+        AUDIO = 'audio', 'Аудио'
+        VIDEO = 'video', 'Видео'
+
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='media_files')
+    file = models.FileField(upload_to=media_upload_path)
+    name = models.CharField(max_length=255)
+    media_type = models.CharField(max_length=10, choices=MediaType.choices)
+    size = models.PositiveIntegerField()
+    duration = models.FloatField(null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name} ({self.media_type}) - {self.owner.login}"
+    
+class Playlist(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='playlists')
+    name = models.CharField(max_length=255)
+    is_loop = models.BooleanField(default=False)
+    is_shufle = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.owner.login}"
+    
+class PlaylistItem(models.Model):
+    playlist = models.ForeignKey(
+        Playlist, on_delete=models.CASCADE, related_name='items'
+    )
+    media = models.ForeignKey(
+        MediaFile, on_delete=models.CASCADE, related_name='playlist_items'
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
+        unique_together = ['playlist', 'order']
+
+    def __str__(self):
+        return f'{self.playlist.name} — {self.order}. {self.media.name}'
+
+
+class Broadcast(models.Model):
+    is_active = models.BooleanField(default=False)
+    volume = models.FloatField(default=1.0)
+    current_playlist = models.ForeignKey(
+        Playlist, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='broadcasts'
+    )
+    current_item = models.ForeignKey(
+        PlaylistItem, on_delete=models.SET_NULL,
+        null=True, blank=True
+    )
+    started_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['id'], name='single_broadcast')
+        ]
+
+
+class Message(models.Model):
+    class Status(models.TextChoices):
+        NEW = 'new', 'Новый'
+        IN_PROGRESS = 'in_progress', 'В работе'
+        DONE = 'done', 'Завершено'
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name='messages'
+    )
+    text = models.TextField(blank=True)
+    # voice_file = models.FileField(
+    #     upload_to='messages/voice/', null=True, blank=True
+    # )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.NEW
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Сообщение от {self.author} — {self.status}'
