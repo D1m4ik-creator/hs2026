@@ -1,0 +1,114 @@
+@import url(https://db.onlinewebfonts.com/c/38764ac6ef7cce3558484bb7e60b9af3?family=Bebas+Neue+Cyrillic);
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+/* font-family: "Bebas Neue Cyrillic"; */
+
+
+* {
+  font-family: "Inter", sans-serif;  
+  margin: 0;
+  padding: 0;
+}
+
+.reg-auth-block {
+    max-width: 670px;
+    background-color: #171616E5;
+    border-radius: 5px;
+    color: white;
+    padding: 40px 20px;
+}
+
+
+#top-block-reg-auth {
+    display: flex;
+    justify-content: space-between;
+}
+
+#top-block-reg-auth a {
+    color: #FFFFFF80;
+    text-decoration: None;
+    font-size: 14px;
+    font-family: "Bebas Neue Cyrillic";
+    font-weight: 400;
+}
+
+#block-reg-auth-name {
+    font-family: "Bebas Neue Cyrillic";
+    font-weight: 400;
+    font-size: 40px;
+    margin: 0;
+}
+
+#small-text-registr {
+    font-size: 14px;
+    color: #FFFFFF80;
+}
+
+.reg-auth-block form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 50px;
+}
+
+#input_file_name {
+    display: flex;
+    align-items: flex-end;
+    margin-bottom: 20px;
+}
+
+#input_file_name .registration_input {
+    width: 100%;
+}
+
+#input_file_name_img {
+    width: 36px;
+    height: 36px;
+    padding: 32px;
+    border: 1px solid #FFFFFF80;
+    border-radius: 50%;
+    margin-right: 20px;
+}
+
+.registration_input label {
+    display: block;
+    font-family: "Bebas Neue Cyrillic";
+    font-weight: 400;
+    font-size: 20px;
+    margin: 10px 0;
+}
+
+.registration_input input {
+    width: 100%;
+    font-size: 12px;
+    padding: 10px 20px;
+    background: none;
+    border: 1px solid #FFFFFF80;
+    border-radius: 5px;
+    box-sizing: border-box;
+    color: white;
+}
+
+#submit-reg{
+    align-self: center;
+    width: 280px;
+    height: 50px;
+    background-color: #E52813;
+    color: white;
+    font-family: 'Bebas Neue Cyrillic';
+    font-weight: 400;
+    font-size: 28px;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 50px;
+}
+
+#have-account {
+    text-align: center;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+#have-account a {
+    color: white;
+}
