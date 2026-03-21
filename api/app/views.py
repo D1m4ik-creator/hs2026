@@ -12,7 +12,7 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 
 from .serializers import *
 from .models import User
-
+from .permissions import IsAdmin, IsHost, IsActiveUser
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
@@ -74,7 +74,6 @@ class LoginAPIView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, login=login, password=password)
-        print(user is not None)
         if user is None or User.is_deleted == False:
             return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
         elif user:

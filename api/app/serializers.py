@@ -15,6 +15,9 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["login", "full_name", "password", "password_confirm", "avatar"]
+        extra_kwargs = {
+            'avatar': {'required': False}
+        }
 
     def validate(self, data):
         password = data.get('password')
