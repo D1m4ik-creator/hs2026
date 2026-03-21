@@ -110,7 +110,7 @@ class Playlist(models.Model):
     def __str__(self):
         return f"{self.name} - {self.owner.login}"
     
-class PlaylistItem(models.Model):
+class PlayListItem(models.Model):
     playlist = models.ForeignKey(
         Playlist, on_delete=models.CASCADE, related_name='items'
     )
@@ -135,7 +135,7 @@ class Broadcast(models.Model):
         null=True, blank=True, related_name='broadcasts'
     )
     current_item = models.ForeignKey(
-        PlaylistItem, on_delete=models.SET_NULL,
+        PlayListItem, on_delete=models.SET_NULL,
         null=True, blank=True
     )
     started_at = models.DateTimeField(null=True, blank=True)

@@ -20,7 +20,9 @@ urlpatterns = [
     path("api/logout/", LogoutAPIView.as_view(), name="logout"), # Выход
     path("api/login/", LoginAPIView.as_view(), name="login"), # Вход
     path("api/media/upload/", MediaFileUploadAPIView.as_view(), name="media_upload"), # Загрузка аудио
-
+    
+    # Текущий пользователь
+    path("api/me/", MeView.as_view(), name="me"),
     # Документация
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

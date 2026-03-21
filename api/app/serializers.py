@@ -2,11 +2,16 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import User, MediaFile
+from .models import *
 import re
 
 User = get_user_model()
-
+class MeSerializer(serializers.ModelSerializer):
+    token = serializers.CharField(read_only=True)
+    class Meta:
+        model = User
+        fields = ['id', 'login', 'full_name', 'roles', 'avatar', 'date_joined']
+        
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     password_confirm = serializers.CharField(write_only=True)
@@ -114,3 +119,32 @@ class MediaFileUploadSerializer(serializers.ModelSerializer):
         )
 
 
+# Плейлист и его элементы
+class PlayListItemSerializer(serializers.ModelSerializer):
+    media = MediaFileUploadSerializer(read_only=True)
+
+    class Meta:
+        model = PlayListItem
+        fields = ['id', 'media', 'order']
+
+
+class PlayListSerializer(serializers.ModelSerializer):
+    items = PlayListItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Playlist
+        fields = ['id', 'name', 'is_loop', 'is_shuffle', 'created_at', 'items']
+        read_only_fields = ['created_at']
+
+
+class BroadCastSerializer(serializers.Serializer):
+    class Meta:
+        fields = ['id', "is_active", "volume", "current_playlist", "current_item", "started_at"]
+
+class MessageSerializer(serializers.Serializer):
+    author_login = serializers.CharField(source='author.login', read_only=True)
+
+    class Meta:
+        model = Message
+        fields = ['id', 'author_login', "text", "status", "created_at"]
+        read_only_fields = ['id', 'author_login', 'created_at']

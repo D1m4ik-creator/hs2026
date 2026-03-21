@@ -3,7 +3,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Broadcast, BroadcastQueueItem, MediaFile, PlaylistItem
+from .models import Broadcast, BroadcastQueueItem, MediaFile, PlayListItem
 
 User = get_user_model()
 
@@ -72,7 +72,7 @@ class BroadcastConsumer(AsyncJsonWebsocketConsumer):
         if media_file_id:
             media = MediaFile.objects.filter(id=media_file_id, is_deleted=False).first()
         elif playlist_item_id:
-            item = PlaylistItem.objects.select_related("media").filter(id=playlist_item_id).first()
+            item = PlayListItem.objects.select_related("media").filter(id=playlist_item_id).first()
             media = item.media if item else None
 
         if not media:

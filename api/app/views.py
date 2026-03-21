@@ -8,15 +8,62 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 import random
 
 from .serializers import *
-from .models import User
+from .models import *
 from .permissions import IsAdmin, IsHost, IsActiveUser
 
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["Аутентификация"],
+        summary="Текущий пользователь",
+        description=(
+            "Возвращает данные текущего пользователя по access токену.\n\n"
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="Authorization",
+                location=OpenApiParameter.HEADER,
+                required=True,
+                type=str,
+                description="JWT access token в формате: Bearer <access_token>",
+            )
+        ],
+        responses={
+            200: UserSerializer,
+            401: OpenApiResponse(description="Токен не передан или недействителен"),
+        },
+        examples=[
+            OpenApiExample(
+                "Успешный ответ",
+                value={
+                    "id": 1,
+                    "login": "host_user",
+                    "full_name": "Иванов Иван Иванович",
+                    "roles": ["host"],
+                    "avatar": "/media/avatars/avatar.jpg",
+                    "date_joined": "2026-03-21T10:30:00Z"
+                },
+                response_only=True,
+                status_codes=["200"],
+            ),
+            OpenApiExample(
+                "Без токена",
+                value={"detail": "Учетные данные не были предоставлены."},
+                response_only=True,
+                status_codes=["401"],
+            ),
+        ],
+    )
+    def get(self, request):
+        return Response(UserSerializer(request.user).data, status=status.HTTP_200_OK)
+    
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -77,7 +124,7 @@ class LoginAPIView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, login=login, password=password)
-        if user is None or User.is_deleted:
+        if user is None or User.is_deleted == False:
             return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
         
         refresh = RefreshToken.for_user(user)
@@ -140,4 +187,42 @@ class MediaFileUploadAPIView(APIView):
         if serializer.is_valid():
             media = serializer.save()
             return Response(MediaFileUploadSerializer(media).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Управление Медиатекой
+class MediaFileListAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        media = MediaFile.objects.filter(
+            owner=request.user, is_deleted=False
+        ).order_by('-uploaded_at')
+        return Response(MediaFileUploadSerializer(media, many=True).data)
+
+
+class MediaFileDeleteAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def delete(self, request, pk):
+        media = get_object_or_404(
+            MediaFile, pk=pk, owner=request.user, is_deleted=False
+        )
+        media.is_deleted = True
+        media.save(update_fields=['is_deleted'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+# Управление плейлистами
+
+class PlaylistListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        playlists = Playlist.objects.filter(owner=request.user)
+        return Response(PlayListSerializer(playlists, many=True).data)
+
+    def post(self, request):
+        serializer = PlayListSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(owner=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
