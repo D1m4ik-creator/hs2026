@@ -115,3 +115,26 @@ class LogoutAPIView(APIView):
             return Response({"detail": "Успешный выход из системы."}, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MediaFileUploadAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @extend_schema(
+        tags=["Медиа"],
+        summary="Загрузка аудио файла",
+        description="Загружает аудио файл и создает MediaFile для последующего enqueue в вещание.",
+        request=MediaFileUploadSerializer,
+        responses={
+            201: MediaFileUploadSerializer,
+            400: OpenApiResponse(response=DetailMessageSerializer, description="Ошибка валидации"),
+            403: OpenApiResponse(response=DetailMessageSerializer, description="Недостаточно прав"),
+        },
+    )
+    def post(self, request):
+        serializer = MediaFileUploadSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            media = serializer.save()
+            return Response(MediaFileUploadSerializer(media).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

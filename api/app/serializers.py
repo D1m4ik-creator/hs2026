@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
-from .models import User
+from .models import User, MediaFile
 import re
 
 User = get_user_model()
@@ -95,6 +95,23 @@ class LoginSuccessSerializer(serializers.Serializer):
 
 class DetailMessageSerializer(serializers.Serializer):
     detail = serializers.CharField()
+
+
+class MediaFileUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MediaFile
+        fields = ['id', 'file', 'name', 'media_type', 'size', 'duration', 'uploaded_at']
+        read_only_fields = ['id', 'size', 'uploaded_at']
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        return MediaFile.objects.create(
+            owner=request.user,
+            media_type=validated_data.get('media_type', MediaFile.MediaType.AUDIO),
+            name=validated_data.get('name'),
+            file=validated_data.get('file'),
+            duration=validated_data.get('duration'),
+        )
 
 
 
