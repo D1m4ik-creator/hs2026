@@ -6,7 +6,7 @@ function Index() {
     const token = localStorage.getItem('token');
     const [user, setUser] = useState();
     const navigate = useNavigate();
-    
+
     useEffect(() => {
         if (!token) {
             console.log("Токена нет → не делаем запрос");
@@ -20,17 +20,17 @@ function Index() {
                 'Content-Type': 'application/json',  // если отправляешь JSON
             },
         })
-        .then(response => {
-            if (!response.ok) throw new Error('Ошибка ' + response.status);
-            return response.json();
-        })
-        .then(data => setUser(data))
-        .catch(err => console.error('Ошибка:', err));
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка ' + response.status);
+                return response.json();
+            })
+            .then(data => setUser(data))
+            .catch(err => console.error('Ошибка:', err));
     }, [])
 
 
     console.log(user)
-    return(<>
+    return (<>
 
     </>)
 }

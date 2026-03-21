@@ -36,7 +36,12 @@ function Auth(){
             const data = await res.json();
             localStorage.setItem('token', data.access);
             setIsAuthenticated(true);
-            navigate('/')
+            const roles = data.user.roles
+            if (roles.includes('host') || roles.includes('admin')) {
+                navigate('/host')
+            } else {
+                navigate('/')
+            }
         } catch (err) {
             console.error(err);
             alert(err);
