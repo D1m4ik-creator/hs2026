@@ -7,10 +7,15 @@ import logo_img from '../assets/logo.png'
 
 function Registration(){
     const fileInputRef = useRef(null);
+    const [preview, setPreview] = useState(null);
+
 
     const handleClick = () => {
-    fileInputRef.current.click();
+        if(fileInputRef){
+            fileInputRef.current.click();
+        }
     };
+
     const [login, setLogin] = useState("");
     const [fullName, setFullName] = useState("");
     const [password, setPassword] = useState("");
@@ -36,21 +41,34 @@ function Registration(){
 
     function handlePhoto(event){
         setPhoto(event.target.files[0]);
-        console.log(event.target.files[0])
+        setPreview(URL.createObjectURL(event.target.files[0]));
     }
 
     function buttonSubmit(){
-        fetch('http://127.0.0.1:8000/api/register/', {
-            method: 'POST', headers: {
-                'Content-Type': 'application/json' 
-            }, body: JSON.stringify({ // Тело запроса
-                login: login,
-                full_name: fullName,
-                password: password,
-                password_confirm: password_confirm
+        const formData = new FormData();
+
+        formData.append("login", login);
+        formData.append("full_name", fullName);
+        formData.append("password", password);
+        formData.append("password_confirm", password_confirm);
+
+        if (photoFile) {
+            formData.append("avatar", photoFile); // ключ должен совпадать!
+        }
+
+        console.log(formData)
+
+        try {
+            fetch("http://localhost:8000/api/register/", {
+                method: "POST",
+                body: formData,
             })
-        })
-    }
+                .then(res => res.json())
+                .then(data => console.log(data));
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     return(<>
         <div className='reg-auth'>
@@ -66,8 +84,15 @@ function Registration(){
                     <form action={() => buttonSubmit()}>
 
                         <div id='input_file_name'>
-                            <input type="file" ref={fileInputRef} style={{ display: "none" }} onClick={handlePhoto}/>
-                            <div onClick={handleClick} id="input_file_name_img"><img src={photoFile ? photoFile : photo} /></div>
+                            <input type="file" ref={fileInputRef} style={{display: "none"}} onChange={handlePhoto}/>
+                            <div onClick={handleClick} id="input_file_name_img" style={
+                                {
+                                    backgroundImage: `url(${preview ? preview : photo})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                }}>
+                                {/* <img src={photo} style={{display: "none"}}/> */}
+                            </div>
 
                             <span className='registration_input'>
                                 <label>ФИО</label>
