@@ -191,59 +191,6 @@ export default function HostPanel() {
       setBroadcast(updated)
     } catch (e) { console.error(e) }
   }
-}, [broadcast.volume]);
-
-const toggleBroadcast = async () => {
-  try {
-    setIsAudioLoading(true);
-    const updated = await api('/broadcast/', {
-      method: 'PATCH',
-      body: JSON.stringify({ is_active: !broadcast.is_active }),
-    });
-    
-    if (updated.is_active && updated.stream_url) {
-      setBroadcast(updated);
-      await startPlayback(updated.stream_url);
-    } else {
-      setBroadcast(updated);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    }
-  } catch (e) { 
-    console.error(e);
-    alert('Ошибка при переключении эфира');
-  } finally {
-    setIsAudioLoading(false);
-  }
-};
-
-const [playbackError, setPlaybackError] = useState(null);
-
-useEffect(() => {
-  if (!audioRef.current) return;
-  
-  const handleError = (e) => {
-    console.error('Audio error:', audioRef.current.error);
-    setPlaybackError('Ошибка воспроизведения: ' + 
-      (audioRef.current.error?.message || 'Неизвестная ошибка'));
-  };
-  
-  const handleCanPlay = () => {
-    setPlaybackError(null);
-  };
-  
-  audioRef.current.addEventListener('error', handleError);
-  audioRef.current.addEventListener('canplay', handleCanPlay);
-  
-  return () => {
-    audioRef.current?.removeEventListener('error', handleError);
-    audioRef.current?.removeEventListener('canplay', handleCanPlay);
-  };
-}, []);
-
-const [isAudioLoading, setIsAudioLoading] = useState(false);
 
   const setVolume = async (v) => {
     setBroadcast(b => ({ ...b, volume: v }))
