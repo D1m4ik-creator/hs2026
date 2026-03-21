@@ -274,6 +274,83 @@ class PlaylistRemoveItemAPIView(APIView):
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
-    
+
 # Вещание
-сжфыы
+class BroadcastAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def _get_broadcast(self):
+        broadcast, _ = Broadcast.objects.get_or_create(pk=1)
+        return broadcast
+
+    def get(self, request):
+        broadcast = self._get_broadcast()
+        data = BroadCastSerializer(broadcast).data
+
+        # Добавляем URL текущего трека
+        if broadcast.is_active and broadcast.current_item:
+            media = broadcast.current_item.media
+            data['stream_url'] = request.build_absolute_uri(media.file.url)
+            data['current_track'] = media.name
+        else:
+            data['stream_url'] = None
+            data['current_track'] = None
+
+        return Response(data)
+
+    def patch(self, request):
+        broadcast = self._get_broadcast()
+        serializer = BroadCastSerializer(broadcast, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            # Включаем эфир
+            turning_on = request.data.get('is_active') and not broadcast.is_active
+            if turning_on:
+                playlist = broadcast.current_playlist
+                if playlist and playlist.is_shufle:  # опечатка в модели — is_shufle
+                    items = list(playlist.items.all())
+                    random.shuffle(items)
+                    for i, item in enumerate(items):
+                        item.order = i
+                        item.save(update_fields=['order'])
+                serializer.save(started_at=timezone.now())
+            else:
+                serializer.save()
+
+            return Response(BroadCastSerializer(broadcast).data)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+# Сообщения со стороны host
+class MessageListAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        messages = Message.objects.exclude(status=Message.Status.DONE)
+        return Response(MessageSerializer(messages, many=True).data)
+
+
+class MessageArchiveAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get(self, request):
+        messages = Message.objects.filter(status=Message.Status.DONE)
+        return Response(MessageSerializer(messages, many=True).data)
+
+
+class MessageStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def patch(self, request, pk):
+        message = get_object_or_404(Message, pk=pk)
+        new_status = request.data.get('status')
+
+        if new_status not in Message.Status.values:
+            return Response(
+                {'detail': f'Допустимые статусы: {Message.Status.values}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        message.status = new_status
+        message.save(update_fields=['status'])
+        return Response(MessageSerializer(message).data)
