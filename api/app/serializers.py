@@ -58,8 +58,8 @@ class UserChangePasswordSerializer(serializers.Serializer):
     password_confirm = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        password = serializers.CharField(write_only=True)
-        password_confirm = serializers.CharField(write_only=True)
+        password = data['password']
+        password_confirm = data['password_confirm']
 
         if not re.match(r'^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{}|;:,.<>?]+$', password):
             raise serializers.ValidationError({"password": "Пароль должен содержать только латинские буквы, цифры и специальные символы."})
@@ -112,6 +112,5 @@ class MediaFileUploadSerializer(serializers.ModelSerializer):
             file=validated_data.get('file'),
             duration=validated_data.get('duration'),
         )
-
 
 

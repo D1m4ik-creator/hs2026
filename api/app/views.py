@@ -9,6 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
+from django.utils import timezone
+from django.shortcuts import get_object_or_404
+import random
 
 from .serializers import *
 from .models import User
@@ -74,15 +77,15 @@ class LoginAPIView(APIView):
         password = request.data.get('password')
 
         user = authenticate(request, login=login, password=password)
-        if user is None or User.is_deleted == False:
+        if user is None or User.is_deleted:
             return Response({"detail": "Неверный логин или пароль"}, status=status.HTTP_401_UNAUTHORIZED)
-        elif user:
-            refresh = RefreshToken.for_user(user)
-            return Response({
-                'access': str(refresh.access_token),
-                'refresh': str(refresh),
-                "user": UserSerializer(user).data
-            })
+        
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            "user": UserSerializer(user).data
+        })
         
 
 class LogoutAPIView(APIView):
