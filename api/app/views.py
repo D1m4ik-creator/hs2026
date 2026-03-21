@@ -226,3 +226,54 @@ class PlaylistListCreateAPIView(APIView):
             serializer.save(owner=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PlaylistDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def get_object(self, pk, user):
+        return get_object_or_404(Playlist, pk=pk, owner=user)
+    
+    def get(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        return Response(PlayListSerializer(playlist).data)
+    
+    def put(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        serializer = PlayListSerializer(playlist, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk):
+        playlist = self.get_object(pk, request.user)
+        playlist.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+class PlaylistAddItemAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def post(self, request, pk):
+        platlist = get_object_or_404(Playlist, pk=pk, owner=request.user)
+        media_id = request.data.get('media_id')
+        media = get_object_or_404(MediaFile, pk=media_id, owner=request.user, is_deleted=False)
+        next_order = platlist.items.count()
+        while platlist.items.filter(order=next_order).exists():
+            next_order += 1
+        item = PlayListItem.objects.create(playlist=platlist, media=media, order=next_order)
+        return Response(PlayListItemSerializer(item).data, status=status.HTTP_201_CREATED)
+    
+
+class PlaylistRemoveItemAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsHost | IsAdmin]
+
+    def delete(self, request, pk, item_id):
+        playlist = get_object_or_404(Playlist, pk=pk, owner=request.user)
+        item = get_object_or_404(PlayListItem, pk=item_id, playlist=playlist)
+        item.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    
+# Вещание
+сжфыы
