@@ -34,9 +34,14 @@ function Auth(){
             if (!res.ok) throw new Error('Ошибка входа');
 
             const data = await res.json();
-            localStorage.setItem('token', data.access);
+            localStorage.setItem('token', data.token);
             setIsAuthenticated(true);
-            navigate('/')
+            const roles = data.user.roles
+            if (roles.includes('host') || roles.includes('admin')) {
+                navigate('/host')
+            } else {
+                navigate('/')
+            }
         } catch (err) {
             console.error(err);
             alert(err);

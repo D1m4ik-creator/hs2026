@@ -6,6 +6,7 @@ import Auth from './pages/Auth'
 import Index from "./pages/Index.jsx"
 import Promo from "./pages/Promo.jsx"
 import "./App.css"
+import HostPanel from './pages/HostPanel'
 
 export default function App() {
   const token = localStorage.getItem('token');
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/reg" element={<Registration />} />
         <Route path="/login" element={<Auth />} />
         <Route path="/" element={startPage} />
+        <Route path="/host" element={<HostPanel />} />
       </Routes>
     </>
   )
