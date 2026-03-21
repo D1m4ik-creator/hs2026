@@ -35,8 +35,8 @@ function Registration(){
     }
 
     function handlePhoto(event){
-        setPhoto(event.target.value);
-        console.log(event.target.value)
+        setPhoto(event.target.files[0]);
+        console.log(event.target.files[0])
     }
 
     function buttonSubmit(){
@@ -67,7 +67,7 @@ function Registration(){
 
                         <div id='input_file_name'>
                             <input type="file" ref={fileInputRef} style={{ display: "none" }} onClick={handlePhoto}/>
-                            <div onClick={handleClick} id="input_file_name_img"><img src={photo} /></div>
+                            <div onClick={handleClick} id="input_file_name_img"><img src={photoFile ? photoFile : photo} /></div>
 
                             <span className='registration_input'>
                                 <label>ФИО</label>
