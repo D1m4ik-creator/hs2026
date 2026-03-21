@@ -38,6 +38,8 @@ services:
       - "7000"
     ports:
       - "7000:7000"
+    volumes:
+      - ./api/media:/api/media
     networks:
       - app_network
 
