@@ -82,3 +82,47 @@
 - Если `is_active = false`, сейчас ничего не воспроизводится.
 - `queue_len` — сколько треков ещё в очереди.
 - При окончании трека фронт должен отправлять `track_ended`, чтобы сервер запустил следующий.
+
+## Модуль слушателя (REST)
+
+| Метод | URL | Описание |
+|---|---|---|
+| `GET` | `/api/listener/broadcast/` | Текущее состояние эфира для слушателя |
+| `GET` | `/api/listener/playlists/` | Список публичных плейлистов |
+| `GET` | `/api/listener/playlists/{id}/` | Детали выбранного плейлиста |
+| `GET` | `/api/listener/messages/` | Список сообщений текущего слушателя |
+| `POST` | `/api/listener/messages/send/` | Отправить сообщение ведущему |
+
+## Сообщения
+
+### REST для ведущего
+
+| Метод | URL | Описание |
+|---|---|---|
+| `GET` | `/api/messages/` | Активные сообщения (кроме `done`) |
+| `GET` | `/api/messages/archive/` | Архив (`done`) |
+| `PATCH` | `/api/messages/{id}/status/` | Обновить статус сообщения (`new`, `in_progress`, `done`) |
+
+### Как работает обновление статусов
+
+- Слушатель отправляет сообщение через `POST /api/listener/messages/send/`.
+- Когда ведущий меняет статус через `PATCH /api/messages/{id}/status/`, слушателю уходит обновление статуса через channel group `user_{id}_messages`.
+
+## Прослушивание вещания (как работать фронту)
+
+1. Получить начальное состояние эфира:
+   - `GET /api/listener/broadcast/`
+2. Подключиться к сокету:
+   - `ws://<host>/ws/broadcast/`
+3. При событии `broadcast_update`:
+   - установить `audio.src = media_url`
+   - выставить `audio.currentTime = offset`
+   - если `is_active=true`, запускать воспроизведение
+4. По окончании трека отправлять:
+```json
+{
+  "action": "track_ended"
+}
+```
+5. Для ведущего управление эфиром:
+   - `enqueue`, `play_next`, `track_ended`.
