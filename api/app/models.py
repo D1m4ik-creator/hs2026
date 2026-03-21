@@ -104,13 +104,13 @@ class Playlist(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='playlists')
     name = models.CharField(max_length=255)
     is_loop = models.BooleanField(default=False)
-    is_shufle = models.BooleanField(default=False)
+    is_shuffle = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} - {self.owner.login}"
     
-class PlaylistItem(models.Model):
+class PlayListItem(models.Model):
     playlist = models.ForeignKey(
         Playlist, on_delete=models.CASCADE, related_name='items'
     )
@@ -135,7 +135,7 @@ class Broadcast(models.Model):
         null=True, blank=True, related_name='broadcasts'
     )
     current_item = models.ForeignKey(
-        PlaylistItem, on_delete=models.SET_NULL,
+        PlayListItem, on_delete=models.SET_NULL,
         null=True, blank=True
     )
     started_at = models.DateTimeField(null=True, blank=True)
