@@ -285,29 +285,20 @@ class BroadcastAPIView(APIView):
 
     def get(self, request):
         broadcast = self._get_broadcast()
-        data = BroadCastSerializer(broadcast).data
-
-        # Добавляем URL текущего трека
-        if broadcast.is_active and broadcast.current_item:
-            media = broadcast.current_item.media
-            data['stream_url'] = request.build_absolute_uri(media.file.url)
-            data['current_track'] = media.name
-        else:
-            data['stream_url'] = None
-            data['current_track'] = None
-
-        return Response(data)
+        return Response(BroadCastSerializer(broadcast, context={'request': request}).data)
 
     def patch(self, request):
         broadcast = self._get_broadcast()
-        serializer = BroadCastSerializer(broadcast, data=request.data, partial=True)
+        serializer = BroadCastSerializer(
+            broadcast, data=request.data, partial=True,
+            context={'request': request}
+        )
 
         if serializer.is_valid():
-            # Включаем эфир
             turning_on = request.data.get('is_active') and not broadcast.is_active
             if turning_on:
                 playlist = broadcast.current_playlist
-                if playlist and playlist.is_shuffle:  # опечатка в модели — is_shufle
+                if playlist and playlist.is_shuffle:
                     items = list(playlist.items.all())
                     random.shuffle(items)
                     for i, item in enumerate(items):
@@ -317,7 +308,10 @@ class BroadcastAPIView(APIView):
             else:
                 serializer.save()
 
-            return Response(BroadCastSerializer(broadcast).data)
+            broadcast.refresh_from_db()  # ← всегда, не только при turning_on
+            return Response(
+                BroadCastSerializer(broadcast, context={'request': request}).data
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     

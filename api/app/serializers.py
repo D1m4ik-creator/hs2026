@@ -32,6 +32,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": "Пароль должен содержать только латинские буквы, цифры и специальные символы."})
         if password != password_confirm:
             raise serializers.ValidationError({"password_confirm": "Пароли не совпадают."})
+        data.pop('password_confirm')
         return data
     
     def create(self, validated_data):
@@ -141,6 +142,18 @@ class BroadCastSerializer(serializers.ModelSerializer):
     class Meta:
         model = Broadcast
         fields = ['id', "is_active", "volume", "current_playlist", "current_item", "started_at"]
+    
+    def get_stream_url(self, obj):
+        if obj.is_active and obj.current_item:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.current_item.media.file.url)
+        return None
+
+    def get_current_track(self, obj):
+        if obj.current_item:
+            return obj.current_item.media.name
+        return None
 
 class MessageSerializer(serializers.ModelSerializer):
     author_login = serializers.CharField(source='author.login', read_only=True)
