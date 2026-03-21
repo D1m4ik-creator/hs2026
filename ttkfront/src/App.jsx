@@ -1,5 +1,4 @@
-import { Routes, Route, Link } from 'react-router-dom'
-import { useState } from 'react';
+import { Routes, Route } from 'react-router-dom'
 
 import Registration from './pages/Registration.jsx'
 import Auth from './pages/Auth'
@@ -13,7 +12,6 @@ export default function App() {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   const roles = user.roles || []
 
-  // Определяем куда редиректить авторизованного пользователя
   const getHomePage = () => {
     if (!token) return <Promo />
     if (roles.includes('host') || roles.includes('admin')) return <HostPanel />

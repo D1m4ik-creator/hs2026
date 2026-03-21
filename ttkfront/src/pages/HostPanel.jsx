@@ -19,6 +19,12 @@ const api = async (path, options = {}) => {
   return res.json()
 }
 
+const resolveMediaUrl = (path) => {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 // ─── Иконки ───────────────────────────────────────────────
 const Icon = ({ name, size = 18 }) => {
   const icons = {
@@ -57,7 +63,7 @@ const MsgStatus = ({ status }) => {
 }
 
 // ─── Плеер-диск ───────────────────────────────────────────
-const VinylPlayer = ({ isPlaying, onToggle, currentTrack }) => (
+const VinylPlayer = ({ isPlaying, onToggle }) => (
   <div style={{ position: 'relative', width: 160, height: 160, flexShrink: 0 }}>
     <div style={{
       width: 160, height: 160, borderRadius: '50%',
@@ -98,44 +104,51 @@ export default function HostPanel() {
   const [playlists, setPlaylists] = useState([])
   const [mediaLibrary, setMediaLibrary] = useState([])
   const [playlistModal, setPlaylistModal] = useState(null) // null | {mode:'create'} | {mode:'edit', playlist}
-  const [msgText, setMsgText] = useState('')
   const wsRef = useRef(null)
   const chatEndRef = useRef(null)
   const fileInputRef = useRef(null)
-  const coverInputRef = useRef(null)
   const audioRef = useRef(null)
+  const reconnectTimeoutRef = useRef(null)
+  const shouldReconnectRef = useRef(true)
 
   // ── Загрузка данных ──────────────────────────────────────
-  useEffect(() => {
-    loadBroadcast()
-    loadMessages()
-    loadPlaylists()
-    loadMedia()
-    connectWS()
-    return () => wsRef.current?.close()
-  }, [])
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const loadBroadcast = async () => {
-    try { setBroadcast(await api('/broadcast/')) } catch {}
-  }
+  const loadBroadcast = useCallback(async () => {
+    try {
+      setBroadcast(await api('/broadcast/'))
+    } catch (error) {
+      console.error('Failed to load broadcast', error)
+    }
+  }, [])
 
-  const loadMessages = async () => {
-    try { setMessages(await api('/messages/')) } catch {}
-  }
+  const loadMessages = useCallback(async () => {
+    try {
+      setMessages(await api('/messages/'))
+    } catch (error) {
+      console.error('Failed to load messages', error)
+    }
+  }, [])
 
-  const loadPlaylists = async () => {
-    try { setPlaylists(await api('/playlists/')) } catch {}
-  }
+  const loadPlaylists = useCallback(async () => {
+    try {
+      setPlaylists(await api('/playlists/'))
+    } catch (error) {
+      console.error('Failed to load playlists', error)
+    }
+  }, [])
 
-  const loadMedia = async () => {
-    try { setMediaLibrary(await api('/media/')) } catch {}
-  }
+  const loadMedia = useCallback(async () => {
+    try {
+      setMediaLibrary(await api('/media/'))
+    } catch (error) {
+      console.error('Failed to load media library', error)
+    }
+  }, [])
 
-  const connectWS = useCallback(() => {
+  const connectWS = useCallback(function connectWS() {
     const token = localStorage.getItem('access')
     const baseWsUrl = WS_URL.replace(/\/+$/, '')
     const ws = new WebSocket(`${baseWsUrl}/?token=${encodeURIComponent(token || '')}`)
@@ -145,27 +158,37 @@ export default function HostPanel() {
         setMessages(prev => [data.message, ...prev])
       }
     }
-    ws.onclose = () => setTimeout(connectWS, 3000)
+    ws.onclose = () => {
+      if (shouldReconnectRef.current) {
+        reconnectTimeoutRef.current = setTimeout(connectWS, 3000)
+      }
+    }
     wsRef.current = ws
   }, [])
 
+  useEffect(() => {
+    shouldReconnectRef.current = true
+    void loadBroadcast()
+    void loadMessages()
+    void loadPlaylists()
+    void loadMedia()
+    connectWS()
+
+    return () => {
+      shouldReconnectRef.current = false
+      clearTimeout(reconnectTimeoutRef.current)
+      wsRef.current?.close()
+    }
+  }, [connectWS, loadBroadcast, loadMessages, loadPlaylists, loadMedia])
+
   // ── Эфир ────────────────────────────────────────────────
-    const toggleBroadcast = async () => {
+  const toggleBroadcast = async () => {
     try {
       const updated = await api('/broadcast/', {
         method: 'PATCH',
         body: JSON.stringify({ is_active: !broadcast.is_active }),
       })
       setBroadcast(updated)
-
-      if (updated.is_active && updated.stream_url) {
-        audioRef.current.src = updated.stream_url
-        audioRef.current.volume = updated.volume ?? 1
-        audioRef.current.play().catch(err => console.error('play error:', err))
-      } else {
-        audioRef.current.pause()
-        audioRef.current.src = ''
-      }
     } catch (e) { console.error(e) }
   }
 
@@ -174,7 +197,9 @@ export default function HostPanel() {
     if (audioRef.current) audioRef.current.volume = v
     try {
       await api('/broadcast/', { method: 'PATCH', body: JSON.stringify({ volume: v }) })
-    } catch {}
+    } catch (error) {
+      console.error('Failed to update volume', error)
+    }
   }
 
   const setPlaylistForBroadcast = async (playlistId) => {
@@ -184,7 +209,9 @@ export default function HostPanel() {
         body: JSON.stringify({ current_playlist: playlistId }),
       })
       setBroadcast(updated)
-    } catch {}
+    } catch (error) {
+      console.error('Failed to update broadcast playlist', error)
+    }
   }
 
   // ── Сообщения ────────────────────────────────────────────
@@ -195,7 +222,9 @@ export default function HostPanel() {
         body: JSON.stringify({ status: newStatus }),
       })
       setMessages(prev => prev.map(m => m.id === id ? updated : m))
-    } catch {}
+    } catch (error) {
+      console.error('Failed to update message status', error)
+    }
   }
 
   // ── Загрузка файла ───────────────────────────────────────
@@ -212,7 +241,7 @@ export default function HostPanel() {
   }
 
   // ── Плейлисты ────────────────────────────────────────────
-  const createPlaylist = async (name, coverFile, mediaIds) => {
+  const createPlaylist = async (name, _coverFile, mediaIds) => {
     try {
       const pl = await api('/playlists/', {
         method: 'POST',
@@ -233,7 +262,9 @@ export default function HostPanel() {
     try {
       await api(`/playlists/${playlistId}/items/${itemId}/`, { method: 'DELETE' })
       await loadPlaylists()
-    } catch {}
+    } catch (error) {
+      console.error('Failed to delete item from playlist', error)
+    }
   }
 
   const togglePlaylistOption = async (playlistId, field, value) => {
@@ -243,14 +274,18 @@ export default function HostPanel() {
         body: JSON.stringify({ [field]: value }),
       })
       await loadPlaylists()
-    } catch {}
+    } catch (error) {
+      console.error('Failed to update playlist option', error)
+    }
   }
 
   const deleteMedia = async (id) => {
     try {
       await api(`/media/${id}/delete/`, { method: 'DELETE' })
       setMediaLibrary(prev => prev.filter(m => m.id !== id))
-    } catch {}
+    } catch (error) {
+      console.error('Failed to delete media', error)
+    }
   }
 
   const logout = () => {
@@ -261,12 +296,40 @@ export default function HostPanel() {
   const activePlaylist = playlists.find(
     p => p.id === Number(broadcast.current_playlist)
   )
+  const currentTrackItem = activePlaylist?.items?.find(
+    (item) => item.id === Number(broadcast.current_item)
+  )
+
+  useEffect(() => {
+    const audio = audioRef.current
+
+    if (!audio) {
+      return
+    }
+
+    const fileUrl = resolveMediaUrl(currentTrackItem?.media?.file)
+
+    audio.volume = broadcast.volume ?? 1
+
+    if (broadcast.is_active && fileUrl) {
+      if (audio.src !== fileUrl) {
+        audio.src = fileUrl
+      }
+
+      audio.play().catch((error) => console.error('play error:', error))
+      return
+    }
+
+    audio.pause()
+    audio.src = ''
+  }, [broadcast.is_active, broadcast.volume, currentTrackItem])
 
   return (
     <div style={{ minHeight: '100vh', background: '#111', color: '#f0f0f0', fontFamily: "'Segoe UI', sans-serif" }}>
       <audio ref={audioRef} style={{ display: 'none' }} />
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.7; } }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: #1a1a1a; }
         ::-webkit-scrollbar-thumb { background: #e53935; border-radius: 2px; }
         input[type=range] { -webkit-appearance: none; width: 100%; height: 3px; background: #333; border-radius: 2px; outline: none; cursor: pointer; }
@@ -361,14 +424,13 @@ export default function HostPanel() {
                   <VinylPlayer
                     isPlaying={broadcast.is_active}
                     onToggle={toggleBroadcast}
-                    currentTrack={broadcast.current_track}
                   />
                 </div>
 
                 {/* Текущий трек */}
-                {broadcast.current_track && (
+                {currentTrackItem?.media?.name && (
                   <div style={{ textAlign: 'center', marginBottom: 16, fontSize: 13, color: '#ccc' }}>
-                    🎵 {broadcast.current_track}
+                    🎵 {currentTrackItem.media.name}
                   </div>
                 )}
 
