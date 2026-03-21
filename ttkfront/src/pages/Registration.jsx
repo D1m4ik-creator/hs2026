@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import { useRef } from "react";
 import photo from "../assets/photo-registration.png"
 import logo_img from '../assets/logo.png'
 
 
-function Registration(){
+function Registration() {
     const fileInputRef = useRef(null);
     const [preview, setPreview] = useState(null);
 
@@ -23,19 +23,19 @@ function Registration(){
     const [photoFile, setPhoto] = useState();
 
 
-    function handleLogin(event){
+    function handleLogin(event) {
         setLogin(event.target.value);
     }
 
-    function handleFullName(event){
+    function handleFullName(event) {
         setFullName(event.target.value);
     }
 
-    function handlePassword(event){
+    function handlePassword(event) {
         setPassword(event.target.value);
     }
 
-    function handlePasswordConfirm(event){
+    function handlePasswordConfirm(event) {
         setPasswordConfirm(event.target.value);
     }
 
@@ -45,36 +45,23 @@ function Registration(){
     }
 
     function buttonSubmit(){
-        const formData = new FormData();
-
-        formData.append("login", login);
-        formData.append("full_name", fullName);
-        formData.append("password", password);
-        formData.append("password_confirm", password_confirm);
-
-        if (photoFile) {
-            formData.append("avatar", photoFile); // ключ должен совпадать!
-        }
-
-        console.log(formData)
-
-        try {
-            fetch("http://localhost:8000/api/register/", {
-                method: "POST",
-                body: formData,
+        fetch('http://127.0.0.1:8000/api/register/', {
+            method: 'POST', headers: {
+                'Content-Type': 'application/json' 
+            }, body: JSON.stringify({ // Тело запроса
+                login: login,
+                full_name: fullName,
+                password: password,
+                password_confirm: password_confirm
             })
-                .then(res => res.json())
-                .then(data => console.log(data));
-        } catch (err) {
-            console.error(err);
-        }
-    };
+        })
+    }
 
-    return(<>
+    return (<>
         <div className='reg-auth'>
             <div className="container container-auth">
-                <Link to="/"><img src={logo_img} alt="ТТК ВЕЩАЕТ"/></Link>
-                
+                <Link to="/"><img src={logo_img} alt="ТТК ВЕЩАЕТ" /></Link>
+
                 <div className='reg-auth-block'>
                     <div id="top-block-reg-auth">
                         <h3 id='block-reg-auth-name'>Регистрация</h3>
@@ -96,24 +83,24 @@ function Registration(){
 
                             <span className='registration_input'>
                                 <label>ФИО</label>
-                                <input type="text" placeholder='Иванов Иван Иванович' onChange={handleFullName}/>
+                                <input type="text" placeholder='Иванов Иван Иванович' onChange={handleFullName} />
                             </span>
                         </div>
 
                         <div className='registration_input'>
                             <label>ЛОГИН</label>
-                            <input type="text" placeholder='user' onChange={handleLogin}/>
+                            <input type="text" placeholder='user' onChange={handleLogin} />
                         </div>
 
                         <div className='registration_input'>
                             <label>ПАРОЛЬ</label>
-                            <input type="password" placeholder='********' onChange={handlePassword}/>
+                            <input type="password" placeholder='********' onChange={handlePassword} />
                             {/* <button>Показать</button> */}
                         </div>
 
                         <div className='registration_input'>
                             <label>ПАРОЛЬ ЕЩЁ РАЗ</label>
-                            <input type="password" placeholder='********' onChange={handlePasswordConfirm}/>
+                            <input type="password" placeholder='********' onChange={handlePasswordConfirm} />
                             {/* <button>Показать</button> */}
                         </div>
 

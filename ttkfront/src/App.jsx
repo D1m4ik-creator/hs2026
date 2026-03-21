@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react';
 
+import HostPanel from './pages/HostPanel'
 import Registration from './pages/Registration.jsx'
 import Auth from './pages/Auth'
 import Index from "./pages/Index.jsx"
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/reg" element={<Registration />} />
         <Route path="/login" element={<Auth />} />
         <Route path="/" element={startPage} />
+        <Route path="/host" element={<HostPanel />} />
       </Routes>
     </>
   )
