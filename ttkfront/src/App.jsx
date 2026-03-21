@@ -21,6 +21,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={getHomePage()} />
+      <Route path="/listener" element={<Index />} />
       <Route path="/reg" element={<Registration />} />
       <Route path="/login" element={<Auth />} />
       <Route path="/host" element={<HostPanel />} />
