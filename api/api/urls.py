@@ -26,7 +26,6 @@ urlpatterns = [
 
     # Медиатека
     path('api/media/', MediaFileListAPIView.as_view()),
-    path('api/media/upload/', MediaFileUploadAPIView.as_view()),
     path('api/media/<int:pk>/delete/', MediaFileDeleteAPIView.as_view()),
 
     # Плейлисты

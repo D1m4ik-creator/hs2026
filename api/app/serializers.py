@@ -137,11 +137,12 @@ class PlayListSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
 
-class BroadCastSerializer(serializers.Serializer):
+class BroadCastSerializer(serializers.ModelSerializer):
     class Meta:
+        model = Broadcast
         fields = ['id', "is_active", "volume", "current_playlist", "current_item", "started_at"]
 
-class MessageSerializer(serializers.Serializer):
+class MessageSerializer(serializers.ModelSerializer):
     author_login = serializers.CharField(source='author.login', read_only=True)
 
     class Meta:

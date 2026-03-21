@@ -268,9 +268,9 @@ class PlaylistAddItemAPIView(APIView):
 class PlaylistRemoveItemAPIView(APIView):
     permission_classes = [IsAuthenticated, IsHost | IsAdmin]
 
-    def delete(self, request, pk, item_id):
+    def delete(self, request, pk, item_pk):
         playlist = get_object_or_404(Playlist, pk=pk, owner=request.user)
-        item = get_object_or_404(PlayListItem, pk=item_id, playlist=playlist)
+        item = get_object_or_404(PlayListItem, pk=item_pk, playlist=playlist)
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -307,7 +307,7 @@ class BroadcastAPIView(APIView):
             turning_on = request.data.get('is_active') and not broadcast.is_active
             if turning_on:
                 playlist = broadcast.current_playlist
-                if playlist and playlist.is_shufle:  # опечатка в модели — is_shufle
+                if playlist and playlist.is_shuffle:  # опечатка в модели — is_shufle
                     items = list(playlist.items.all())
                     random.shuffle(items)
                     for i, item in enumerate(items):
