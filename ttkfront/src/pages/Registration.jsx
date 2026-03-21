@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { useRef } from "react";
 import photo from "../assets/photo-registration.png"
 import logo_img from '../assets/logo.png'
+import { useNavigate } from 'react-router-dom';
 
 
 function Registration() {
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const [preview, setPreview] = useState(null);
 
@@ -55,6 +57,7 @@ function Registration() {
                 password_confirm: password_confirm
             })
         })
+        navigate('/')
     }
 
     return (<>
