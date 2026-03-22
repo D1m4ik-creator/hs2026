@@ -6,6 +6,7 @@ import { useListenerMessages } from '../hooks/useListenerMessages'
 import BroadcastPlayer from '../components/listener/BroadcastPlayer'
 import Chat from '../components/listener/Chat'
 import PlaylistsSection from '../components/listener/PlaylistsSection'
+import logo from '../assets/logo.png'
 
 const resolveUrl = (path) => {
   if (!path) return ''
@@ -28,18 +29,14 @@ export default function Index() {
   const token = localStorage.getItem('access') || localStorage.getItem('token')
 
   const [broadcast, setBroadcast] = useState({
-    is_active: false, media_url: null, offset: 0, volume: 1, host: null,
+    is_active: false, media_url: null, offset: 0, volume: 1, host: null, current_track: null,
   })
-  const [activeTab, setActiveTab] = useState('broadcast') // 'broadcast' | 'playlists'
+  const [activeTab, setActiveTab] = useState('broadcast')
 
   const audioRef = useRef(null)
-  const broadcastRef = useRef(broadcast)
-  broadcastRef.current = broadcast
-
   const broadcastSectionRef = useRef(null)
   const playlistsSectionRef = useRef(null)
 
-  // ── Auth guard ────────────────────────────────────────
   useEffect(() => {
     if (!token) navigate('/login')
   }, [token, navigate])
@@ -50,242 +47,207 @@ export default function Index() {
       const data = await apiFetch('/listener/broadcast/')
       setBroadcast(prev => ({
         ...prev,
-        ...data,
-        volume: prev.volume, // keep local volume
+        is_active: data.is_active,
+        media_url: data.stream_url ?? data.media_url ?? prev.media_url,
+        host: data.host_login ?? data.host ?? prev.host,
+        current_track: data.current_track ?? prev.current_track,
+        offset: data.offset ?? 0,
+        // Only take server volume on first load (prev.volume === 1 = untouched default)
+        volume: prev.volume === 1 ? (data.volume ?? 1) : prev.volume,
       }))
-    } catch (e) {
-      console.error('Failed to load broadcast state', e)
-    }
+    } catch (e) { console.error('Failed to load broadcast', e) }
   }, [])
 
-  useEffect(() => {
-    void loadBroadcast()
-    const timer = setInterval(loadBroadcast, 15000)
-    return () => clearInterval(timer)
-  }, [loadBroadcast])
+  // Initial load only — WS handles subsequent updates via onopen fetch
+  useEffect(() => { void loadBroadcast() }, [loadBroadcast])
 
-  // ── WebSocket: broadcast_update ───────────────────────
+  // ── WebSocket broadcast updates ───────────────────────
   const handleBroadcastUpdate = useCallback((data) => {
-    // data: { type, media_url, offset, is_active, queue_len, current_queue_item_id }
     setBroadcast(prev => ({
       ...prev,
       is_active: data.is_active,
-      media_url: data.media_url,
+      media_url: data.media_url ?? prev.media_url,  // normalise() maps stream_url→media_url
       offset: data.offset ?? 0,
+      host: data.host ?? prev.host,
+      current_track: data.current_track ?? prev.current_track,
+      volume: data.volume ?? prev.volume,
     }))
   }, [])
 
-  const { sendAction } = useBroadcastWS({
-    onUpdate: handleBroadcastUpdate,
-    enabled: !!token,
-  })
+  const { sendAction } = useBroadcastWS({ onUpdate: handleBroadcastUpdate, enabled: !!token })
 
-  // ── Audio sync ────────────────────────────────────────
+  // ── Audio playback sync ───────────────────────────────
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
 
-    if (broadcast.is_active && broadcast.media_url) {
-      const url = resolveUrl(broadcast.media_url)
-      if (audio.src !== url) {
-        audio.src = url
-        audio.load()
-      }
-      audio.volume = broadcast.volume ?? 1
+    // Play if: server says active OR there's a stream_url and a current track
+    const shouldPlay = broadcast.is_active && broadcast.media_url
 
-      // Sync offset for new listeners
+    if (shouldPlay) {
+      const url = resolveUrl(broadcast.media_url)
+      if (audio.src !== url) { audio.src = url; audio.load() }
+      audio.volume = broadcast.volume ?? 1
       if (broadcast.offset > 0 && Math.abs(audio.currentTime - broadcast.offset) > 2) {
         audio.currentTime = broadcast.offset
       }
+      audio.play().catch(e => console.warn('autoplay blocked', e))
 
-      audio.play().catch(e => console.error('play error', e))
-
-      // Notify server when track ends
-      const handleEnded = () => sendAction({ action: 'track_ended' })
-      audio.addEventListener('ended', handleEnded)
-      return () => audio.removeEventListener('ended', handleEnded)
+      const onEnded = () => sendAction({ action: 'track_ended' })
+      audio.addEventListener('ended', onEnded)
+      return () => audio.removeEventListener('ended', onEnded)
     } else {
       audio.pause()
       if (!broadcast.is_active) audio.src = ''
     }
   }, [broadcast.is_active, broadcast.media_url, broadcast.offset, broadcast.volume, sendAction])
 
+  // ── Toggle by listener (local only — no server control) ──
+  const handleToggle = () => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (audio.paused) { audio.play().catch(() => {}) }
+    else { audio.pause() }
+  }
+
   // ── Messages ──────────────────────────────────────────
   const { messages, sending, sendMessage } = useListenerMessages()
 
-  // ── Volume (local only) ───────────────────────────────
+  // ── Volume ────────────────────────────────────────────
   const handleVolume = (v) => {
     setBroadcast(prev => ({ ...prev, volume: v }))
     if (audioRef.current) audioRef.current.volume = v
   }
 
-  // ── Tab scroll ────────────────────────────────────────
-  const scrollToTab = (tab) => {
+  // ── Tab navigation ────────────────────────────────────
+  const goToTab = (tab) => {
     setActiveTab(tab)
     const ref = tab === 'broadcast' ? broadcastSectionRef : playlistsSectionRef
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const logout = () => {
-    localStorage.clear()
-    window.location.href = '/'
-  }
+  const logout = () => { localStorage.clear(); window.location.href = '/' }
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#0a0a0a',
+      background: '#0d0d0d',
       color: '#f0f0f0',
       fontFamily: "'Inter', sans-serif",
     }}>
       <audio ref={audioRef} style={{ display: 'none' }} />
 
-      {/* ── Global styles ─────────────────────────────── */}
       <style>{`
         @import url(https://db.onlinewebfonts.com/c/38764ac6ef7cce3558484bb7e60b9af3?family=Bebas+Neue+Cyrillic);
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
 
-        *, *::before, *::after { box-sizing: border-box; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         @keyframes vinylSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes wave {
-          from { transform: scaleY(1); }
-          to   { transform: scaleY(0.25); }
-        }
-        @keyframes dotPulse {
-          0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.4; transform: scale(1.4); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes msgIn {
-          from { opacity: 0; transform: translateY(4px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes wave { from { transform: scaleY(1); } to { transform: scaleY(0.2); } }
+        @keyframes dotPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.4; transform:scale(1.4); } }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes msgIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 
         ::-webkit-scrollbar { width: 3px; height: 3px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #E52813; border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: #c41f10; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 
-        input { border: none; }
-        input::placeholder { color: #3a3a3a; }
+        input::placeholder { color: #444; }
         input:focus { outline: none; }
+        button { font-family: inherit; }
 
-        input[type=range] {
-          -webkit-appearance: none;
-          appearance: none;
-        }
+        input[type=range] { -webkit-appearance: none; appearance: none; }
         input[type=range]::-webkit-slider-thumb {
           -webkit-appearance: none;
-          width: 11px; height: 11px;
-          border-radius: 50%;
-          background: #E52813;
-          cursor: pointer;
+          width: 10px; height: 10px; border-radius: 50%;
+          background: rgba(255,255,255,0.8); cursor: pointer;
         }
       `}</style>
 
-      {/* ── Header ──────────────────────────────────────── */}
+      {/* ── HEADER ──────────────────────────────────────── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 200,
-        height: 58,
-        background: 'rgba(10,10,10,0.9)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid #141414',
+        height: 60,
+        background: '#0d0d0d',
+        borderBottom: '1px solid #181818',
         display: 'flex', alignItems: 'center',
-        padding: '0 32px', gap: 24,
+        padding: '0 40px',
       }}>
         {/* Logo */}
-        <span style={{ fontFamily: 'Bebas Neue Cyrillic', fontSize: 20, letterSpacing: 2, flexShrink: 0 }}>
-          ТТК<span style={{ color: '#E52813' }}>●</span>ВЕЩАЕТ
-        </span>
+        <img src={logo} alt="ТТК ВЕЩАЕТ" style={{ height: 28, marginRight: 48 }} />
 
-        {/* Nav tabs */}
-        <nav style={{ display: 'flex', gap: 4 }}>
-          {[
-            { id: 'broadcast', label: 'ЭФИР' },
-            { id: 'playlists', label: 'ПЛЕЙЛИСТЫ' },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => scrollToTab(tab.id)} style={{
-              background: activeTab === tab.id ? '#E52813' : 'none',
-              border: 'none',
-              color: activeTab === tab.id ? '#fff' : '#666',
-              padding: '5px 16px', borderRadius: 6, cursor: 'pointer',
-              fontFamily: 'Bebas Neue Cyrillic', fontSize: 13, letterSpacing: 1.5,
-              transition: 'all 0.15s',
+        {/* Nav */}
+        <nav style={{ display: 'flex', gap: 32, flex: 1 }}>
+          {[{ id: 'broadcast', label: 'ЭФИР' }, { id: 'playlists', label: 'ПЛЕЙЛИСТЫ' }].map(tab => (
+            <button key={tab.id} onClick={() => goToTab(tab.id)} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'Bebas Neue Cyrillic',
+              fontSize: 15, letterSpacing: 2,
+              color: activeTab === tab.id ? '#fff' : '#555',
+              borderBottom: activeTab === tab.id ? '2px solid #E52813' : '2px solid transparent',
+              paddingBottom: 2,
+              transition: 'color 0.15s',
             }}>
               {tab.label}
             </button>
           ))}
         </nav>
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
-
-        {/* User */}
+        {/* User + logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, fontWeight: 500, color: '#ccc' }}>{user.full_name}</div>
-            <div style={{ fontSize: 10, color: '#444' }}>@{user.login}</div>
-          </div>
-
           {user.avatar
-            ? <img
-                src={resolveUrl(user.avatar)}
-                alt=""
-                style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #E52813' }}
-              />
+            ? <img src={resolveUrl(user.avatar)} alt="" style={{
+                width: 36, height: 36, borderRadius: '50%', objectFit: 'cover',
+                border: '2px solid #2a2a2a',
+              }} />
             : <div style={{
-                width: 32, height: 32, borderRadius: '50%',
-                background: '#181818', border: '1.5px solid #2a2a2a',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+                width: 36, height: 36, borderRadius: '50%',
+                background: '#222', border: '2px solid #2a2a2a',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
               }}>🎧</div>
           }
-
           <button onClick={logout} style={{
-            background: 'none', border: '1px solid #1e1e1e', color: '#444',
-            borderRadius: 7, padding: '4px 10px', cursor: 'pointer',
-            fontSize: 11, transition: 'all 0.15s',
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, color: '#888',
+            fontFamily: 'Bebas Neue Cyrillic', letterSpacing: 1,
+            transition: 'color 0.15s',
           }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#E52813'; e.currentTarget.style.borderColor = '#E52813' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#444'; e.currentTarget.style.borderColor = '#1e1e1e' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#fff'}
+            onMouseLeave={e => e.currentTarget.style.color = '#888'}
           >
-            Выйти
+            {(user.full_name || user.login || '').toUpperCase()} (ВЫЙТИ)
           </button>
         </div>
       </header>
 
-      {/* ── Page body ─────────────────────────────────────── */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 60px' }}>
+      {/* ── PAGE BODY ────────────────────────────────────── */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 40px 80px' }}>
 
-        {/* ─── ЭФИР section ──────────────────────────────── */}
+        {/* ── ЭФИР ─────────────────────────────────────── */}
         <section ref={broadcastSectionRef} style={{ paddingTop: 40 }}>
           <h2 style={{
             fontFamily: 'Bebas Neue Cyrillic',
-            fontSize: 36, letterSpacing: 5,
+            fontSize: 40, letterSpacing: 6,
             color: '#ddd', textAlign: 'center',
             marginBottom: 28,
           }}>
             ЭФИР
           </h2>
 
+          {/* Player + Chat grid — matches screenshot proportions */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '340px 1fr',
-            gap: 20,
+            gridTemplateColumns: '1fr 420px',
+            gap: 16,
             alignItems: 'stretch',
           }}>
-            {/* Player */}
             <BroadcastPlayer
               broadcast={broadcast}
-              audioRef={audioRef}
               onVolume={handleVolume}
+              onToggle={handleToggle}
             />
-
-            {/* Chat */}
-            <div style={{ minHeight: 460 }}>
+            <div style={{ minHeight: 360 }}>
               <Chat
                 messages={messages}
                 sending={sending}
@@ -297,27 +259,19 @@ export default function Index() {
           </div>
         </section>
 
-        {/* Divider */}
-        <div style={{
-          height: 1, background: 'linear-gradient(to right, transparent, #1e1e1e, transparent)',
-          margin: '48px 0',
-        }} />
-
-        {/* ─── ПЛЕЙЛИСТЫ section ──────────────────────────── */}
-        <section ref={playlistsSectionRef}>
+        {/* ── ПЛЕЙЛИСТЫ ────────────────────────────────── */}
+        <section ref={playlistsSectionRef} style={{ marginTop: 72 }}>
           <PlaylistsSection />
         </section>
 
-        {/* Footer */}
+        {/* ── FOOTER ──────────────────────────────────── */}
         <footer style={{
-          marginTop: 60,
+          marginTop: 64, paddingTop: 20,
+          borderTop: '1px solid #181818',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderTop: '1px solid #141414', paddingTop: 20,
         }}>
-          <span style={{ fontFamily: 'Bebas Neue Cyrillic', fontSize: 16, letterSpacing: 2, color: '#2a2a2a' }}>
-            ТТК<span style={{ color: '#E52813' }}>●</span>ВЕЩАЕТ
-          </span>
-          <span style={{ fontSize: 10, color: '#2a2a2a' }}>FULL STACK 2025</span>
+          <img src={logo} alt="ТТК ВЕЩАЕТ" style={{ height: 22, opacity: 0.3 }} />
+          <span style={{ fontSize: 11, color: '#2a2a2a', letterSpacing: 1 }}>FULL STACK 2025</span>
         </footer>
       </div>
     </div>
