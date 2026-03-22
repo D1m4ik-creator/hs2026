@@ -24,6 +24,8 @@ services:
       dockerfile: Dockerfile
     image: todo:latest
     container_name: backend
+    volumes:
+      - ./media:/api/media
     env_file:
       - ./api/api/.env
     environment:

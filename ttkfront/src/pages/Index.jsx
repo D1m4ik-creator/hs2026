@@ -11,7 +11,8 @@ import logo from '../assets/logo.png'
 const resolveUrl = (path) => {
   if (!path) return ''
   if (/^https?:\/\//i.test(path)) return path
-  return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`
+  const stripped = path.replace(/^\/+/, '').replace(/^media\//, '')
+  return `${API_ORIGIN}/media/${stripped}`
 }
 
 async function apiFetch(path) {
