@@ -1,116 +1,128 @@
 import { Link } from 'react-router-dom'
-import { useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState } from 'react';
+import { useRef } from "react";
 import photo from "../assets/photo-registration.png"
 import logo_img from '../assets/logo.png'
-import { API_BASE } from '../config'
+import { useNavigate } from 'react-router-dom';
 
 
-function Registration(){
-    const navigate = useNavigate()
+function Registration() {
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
+    const [preview, setPreview] = useState(null);
+
 
     const handleClick = () => {
-    fileInputRef.current.click();
+        if(fileInputRef){
+            fileInputRef.current.click();
+        }
     };
+
     const [login, setLogin] = useState("");
     const [fullName, setFullName] = useState("");
     const [password, setPassword] = useState("");
     const [password_confirm, setPasswordConfirm] = useState("");
-    const [photoFile, setPhoto] = useState(null);
+    const [photoFile, setPhoto] = useState();
 
 
-    function handleLogin(event){
+    function handleLogin(event) {
         setLogin(event.target.value);
     }
 
-    function handleFullName(event){
+    function handleFullName(event) {
         setFullName(event.target.value);
     }
 
-    function handlePassword(event){
+    function handlePassword(event) {
         setPassword(event.target.value);
     }
 
-    function handlePasswordConfirm(event){
+    function handlePasswordConfirm(event) {
         setPasswordConfirm(event.target.value);
     }
 
     function handlePhoto(event){
-        setPhoto(event.target.files?.[0] || null);
+        setPhoto(event.target.files[0]);
+        setPreview(URL.createObjectURL(event.target.files[0]));
     }
 
-    async function buttonSubmit(){
-        const body = new FormData()
-        body.append('login', login)
-        body.append('full_name', fullName)
-        body.append('password', password)
-        body.append('password_confirm', password_confirm)
-
+    function buttonSubmit(){
+        const formData = new FormData();
+        formData.append('login', login);
+        formData.append('full_name', fullName);
+        formData.append('password', password);
+        formData.append('password_confirm', password_confirm);
+        
+        // Добавляем файл, если он выбран
         if (photoFile) {
-            body.append('avatar', photoFile)
+            formData.append('avatar', photoFile);
         }
 
-        const response = await fetch(`${API_BASE}/register/`, {
+        fetch('http://127.0.0.1:8000/api/register/', {
             method: 'POST',
-            body,
+            // Не указываем Content-Type - браузер сам установит его с boundary
+            body: formData
         })
-
-        if (!response.ok) {
-            throw new Error('Ошибка регистрации')
-        }
-
-        navigate('/login')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+            navigate('/'); // Переход после успешной регистрации
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+        // navigate('/')
     }
 
-    const handleSubmit = async (event) => {
-        event.preventDefault()
-
-        try {
-            await buttonSubmit()
-        } catch (error) {
-            console.error(error)
-            alert(error)
-        }
-    }
-
-    return(<>
+    return (<>
         <div className='reg-auth'>
             <div className="container container-auth">
-                <Link to="/"><img src={logo_img} alt="ТТК ВЕЩАЕТ"/></Link>
-                
+                <Link to="/"><img src={logo_img} alt="ТТК ВЕЩАЕТ" /></Link>
+
                 <div className='reg-auth-block'>
                     <div id="top-block-reg-auth">
                         <h3 id='block-reg-auth-name'>Регистрация</h3>
                         <Link to="/login">Войти в аккаут</Link>
                     </div>
                     <p id='small-text-registr'>Эфир уже ждёт. Подключайся</p>
-                    <form onSubmit={handleSubmit}>
+                    <form action={() => buttonSubmit()}>
 
                         <div id='input_file_name'>
-                            <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={handlePhoto}/>
-                            <div onClick={handleClick} id="input_file_name_img"><img src={photo} /></div>
+                            <input type="file" ref={fileInputRef} style={{display: "none"}} onChange={handlePhoto}/>
+                            <div onClick={handleClick} id="input_file_name_img" style={
+                                {
+                                    backgroundImage: `url(${preview ? preview : photo})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center'
+                                }}>
+                                {/* <img src={photo} style={{display: "none"}}/> */}
+                            </div>
 
                             <span className='registration_input'>
                                 <label>ФИО</label>
-                                <input type="text" placeholder='Иванов Иван Иванович' onChange={handleFullName}/>
+                                <input type="text" placeholder='Иванов Иван Иванович' onChange={handleFullName} />
                             </span>
                         </div>
 
                         <div className='registration_input'>
                             <label>ЛОГИН</label>
-                            <input type="text" placeholder='user' onChange={handleLogin}/>
+                            <input type="text" placeholder='user' onChange={handleLogin} />
                         </div>
 
                         <div className='registration_input'>
                             <label>ПАРОЛЬ</label>
-                            <input type="password" placeholder='********' onChange={handlePassword}/>
+                            <input type="password" placeholder='********' onChange={handlePassword} />
                             {/* <button>Показать</button> */}
                         </div>
 
                         <div className='registration_input'>
                             <label>ПАРОЛЬ ЕЩЁ РАЗ</label>
-                            <input type="password" placeholder='********' onChange={handlePasswordConfirm}/>
+                            <input type="password" placeholder='********' onChange={handlePasswordConfirm} />
                             {/* <button>Показать</button> */}
                         </div>
 
