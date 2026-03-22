@@ -30,7 +30,7 @@ export default function HostPanel() {
     broadcast, activePlaylist, currentTrackItem,
     audioRef, autoplayBlocked,
     init: initBroadcast,
-    toggleBroadcast, setVolume, setPlaylistForBroadcast, resumeAudio, sendAction, setLocalSelectedPlaylist,
+    toggleBroadcast, setVolume, setPlaylistForBroadcast, resumeAudio, sendAction, setLocalSelectedPlaylist, setEnqueuedIndex,
   } = useHostBroadcast(playlists)
 
   const { messages, loadMessages, changeStatus } = useHostMessages()
@@ -135,6 +135,7 @@ export default function HostPanel() {
               sendAction={sendAction}
               audioRef={audioRef}
               onSelectPlaylist={setLocalSelectedPlaylist}
+              onEnqueuedIndex={setEnqueuedIndex}
             />
 
             {/* Hidden file input for uploads */}

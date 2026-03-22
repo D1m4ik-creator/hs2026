@@ -38,7 +38,15 @@ export function useHostBroadcast(playlists) {
 
   // ── Load broadcast state ──────────────────────────────
   const loadBroadcast = useCallback(async () => {
-    try { setBroadcast(await api('/broadcast/')) }
+    try {
+      const data = await api('/broadcast/')
+      // Normalise: REST returns stream_url, WS returns media_url — unify as media_url
+      setBroadcast(prev => ({
+        ...prev,
+        ...data,
+        media_url: data.media_url ?? data.stream_url ?? prev.media_url ?? null,
+      }))
+    }
     catch (e) { console.error('Failed to load broadcast', e) }
   }, [])
 
@@ -53,14 +61,16 @@ export function useHostBroadcast(playlists) {
       try {
         const data = JSON.parse(e.data)
         if (data.type !== 'broadcast_update') return
+        
+        const newItemId = data.current_item ?? data.current_track ?? data.current_queue_item_id;
+        const newPlaylistId = data.current_playlist_id ?? data.current_playlist;
+
         setBroadcast(prev => ({
           ...prev,
           is_active:       data.is_active,
           media_url:       data.media_url ?? prev.media_url,
-          ...(data.current_playlist_id != null
-            ? { current_playlist: data.current_playlist_id } : {}),
-          ...(data.current_queue_item_id != null
-            ? { current_item: data.current_queue_item_id } : {}),
+          ...(newPlaylistId != null ? { current_playlist: newPlaylistId } : {}),
+          ...(newItemId != null ? { current_item: newItemId } : {}),
         }))
       } catch (_) {}
     }
@@ -85,39 +95,45 @@ export function useHostBroadcast(playlists) {
     }
   }, [connectBroadcastWS])
 
-  // ── REST-based next track ────────────────────────────
-  // Fetch fresh playlist from server on every track end —
-  // guarantees correct order even if playlist was edited during broadcast
+  // ── Index tracking ───────────────────────────────────
+  // Store index of last enqueued item — updated every time we enqueue
+  // This is reliable: we always know what we just sent to the server
+  const lastEnqueuedIndexRef = useRef(-1)
+  const lastEnqueuedPlaylistIdRef = useRef(null)
+
   const fetchNextTrack = async () => {
     const playlist = localSelectedPlaylistRef.current
-    if (!playlist?.id) return null
+      ?? playlistsRef.current?.[0]
+      ?? null
+
+    if (!playlist?.id) {
+      console.warn('[auto-advance] no playlist selected')
+      return null
+    }
 
     try {
       const fresh = await api(`/playlists/${playlist.id}/`)
       const items = fresh.items ?? []
       if (items.length === 0) return null
 
-      const mediaUrl = broadcastRef.current?.media_url ?? ''
-      const currentFilename = mediaUrl.split('/').pop()
-
-      // Find current track by filename match
-      const currentIdx = currentFilename
-        ? items.findIndex(it => {
-            const raw = it.media?.file ?? it.media?.url ?? it.media?.stream_url ?? ''
-            return raw.split('/').pop() === currentFilename
-          })
-        : -1
-
-      console.log('[auto-advance] playlist:', fresh.name, '| current idx:', currentIdx, '/', items.length - 1)
-
-      if (currentIdx < 0) {
-        // Current track not in playlist — start from first
-        return items[0]
+      // If playlist switched, reset index
+      if (lastEnqueuedPlaylistIdRef.current !== playlist.id) {
+        lastEnqueuedIndexRef.current = -1
+        lastEnqueuedPlaylistIdRef.current = playlist.id
       }
 
-      const nextIdx = (currentIdx + 1) % items.length
-      console.log('[auto-advance] next:', items[nextIdx]?.media?.name)
-      return items[nextIdx]
+      const currentIdx = lastEnqueuedIndexRef.current
+      const nextIdx = currentIdx < 0 ? 0 : (currentIdx + 1) % items.length
+      const nextItem = items[nextIdx]
+
+      console.log('[auto-advance] playlist:', fresh.name,
+        '| currentIdx:', currentIdx, '→ nextIdx:', nextIdx,
+        '| next track:', nextItem?.media?.name)
+
+      // Update index immediately so next call returns correct position
+      lastEnqueuedIndexRef.current = nextIdx
+
+      return nextItem
     } catch (e) {
       console.error('[auto-advance] failed to fetch playlist:', e)
       return null
@@ -129,11 +145,13 @@ export function useHostBroadcast(playlists) {
     const audio = audioRef.current
     if (!audio) return
 
-    const fileUrl = extractMediaUrl(currentTrackItem?.media)
+    // Добавляем фолбэк: если трек не найден локально, используем URL от сервера
+    const fileUrl = extractMediaUrl(currentTrackItem?.media) || broadcast.media_url
     audio.volume = broadcast.volume ?? 1
 
-    if (broadcast.is_active && fileUrl) {
-      if (audio.src !== fileUrl) {
+if (broadcast.is_active && fileUrl) {
+      // 1. Фикс перезаписи: сравниваем нестрого, чтобы не сбивать играющий трек
+      if (!audio.src.includes(fileUrl) && audio.src !== fileUrl) {
         audio.src = fileUrl
       }
 
@@ -154,19 +172,27 @@ export function useHostBroadcast(playlists) {
         audio.load()
       }
 
-      // ── Auto-advance when track ends ──────────────────
-      const handleEnded = () => {
-        // Use REST to get fresh playlist order — no stale index issues
+      // 2. Фикс гонки: сначала завершаем старый трек, потом ставим новый
+        const handleEnded = () => {
+        // Находим следующий трек в текущем плейлисте
         fetchNextTrack().then(nextItem => {
-          console.log('[auto-advance] track ended → next:', nextItem?.media?.name ?? 'none (stopping)')
-          if (nextItem) {
-            sendActionRef.current?.({ action: 'enqueue', playlist_item_id: nextItem.id })
-            setTimeout(() => sendActionRef.current?.({ action: 'track_ended' }), 150)
-          } else {
-            sendActionRef.current?.({ action: 'track_ended' })
+          if (!nextItem) {
+            console.log('[auto-advance] No more tracks in playlist.');
+            // Если треков больше нет, просто уведомляем бэк, что всё закончилось
+            sendActionRef.current?.({ action: 'track_ended' });
+            return;
           }
-        })
-      }
+
+          console.log('[auto-advance] Switch to next track:', nextItem.media?.name);
+          
+          // Отправляем ОДНУ команду. Бэк сам сделает статус DONE старому треку
+          // и PLAYING новому. Это исключит гонку состояний.
+          sendActionRef.current?.({ 
+            action: 'enqueue', 
+            playlist_item_id: nextItem.id 
+          });
+        });
+      };
 
       audio.addEventListener('ended', handleEnded)
       return () => {
@@ -178,7 +204,9 @@ export function useHostBroadcast(playlists) {
     audio.pause()
     audio.src = ''
     setAutoplayBlocked(false)
-  }, [broadcast.is_active, broadcast.volume, broadcast.current_playlist, currentTrackItem])
+
+  // ВАЖНО: Добавлено broadcast.media_url в массив зависимостей
+  }, [broadcast.is_active, broadcast.volume, broadcast.current_playlist, currentTrackItem, broadcast.media_url])
 
   // ── Actions ───────────────────────────────────────────
   const toggleBroadcast = async () => {
@@ -224,15 +252,15 @@ export function useHostBroadcast(playlists) {
   }, [])
 
   const sendAction = useCallback((payload) => {
-    const ws    = wsBroadcastRef.current
-    const state = ws?.readyState
-    if (state === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload))
-      console.log('[ws] sent:', payload)
-    } else {
-      console.warn('[ws] sendAction skipped — state:', state, 'payload:', payload)
-    }
-  }, [])
+      const ws = wsBroadcastRef.current;
+      // Проверяем именно ws.readyState
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(payload));
+        console.log('[ws] sent:', payload);
+      } else {
+        console.warn('[ws] sendAction skipped — WS not ready. State:', ws?.readyState);
+      }
+    }, []);
 
   // Keep sendAction ref fresh
   sendActionRef.current = sendAction
@@ -240,8 +268,16 @@ export function useHostBroadcast(playlists) {
   // ── Expose ref so BroadcastSection can tell us which playlist is selected ──
   const setLocalSelectedPlaylist = useCallback((playlist) => {
     if (localSelectedPlaylistRef.current?.id !== playlist?.id) {
+      lastEnqueuedIndexRef.current = -1
+      lastEnqueuedPlaylistIdRef.current = playlist?.id ?? null
     }
     localSelectedPlaylistRef.current = playlist
+  }, [])
+
+  // Called when host manually clicks a track row — keeps auto-advance in sync
+  const setEnqueuedIndex = useCallback((playlist, itemIndex) => {
+    lastEnqueuedIndexRef.current = itemIndex
+    lastEnqueuedPlaylistIdRef.current = playlist?.id ?? null
   }, [])
 
   return {
@@ -249,6 +285,6 @@ export function useHostBroadcast(playlists) {
     audioRef, autoplayBlocked,
     init: loadBroadcast,
     toggleBroadcast, setVolume, setPlaylistForBroadcast,
-    resumeAudio, sendAction, setLocalSelectedPlaylist,
+    resumeAudio, sendAction, setLocalSelectedPlaylist, setEnqueuedIndex,
   }
 }

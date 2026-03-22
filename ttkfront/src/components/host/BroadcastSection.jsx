@@ -175,7 +175,7 @@ function TrackRow({ item, index, isCurrent, isPlaying, audioRef, onPlay, onDelet
 export function BroadcastStream({
   broadcast, activePlaylist, playlists,
   setPlaylistForBroadcast, togglePlaylistOption, deleteFromPlaylist,
-  onUploadClick, sendAction, audioRef, onSelectPlaylist,
+  onUploadClick, sendAction, audioRef, onSelectPlaylist, onEnqueuedIndex,
 }) {
   const [page, setPage] = useState(1)
 
@@ -230,7 +230,11 @@ export function BroadcastStream({
     if (idx >= 0) setPage(Math.floor(idx / PAGE_SIZE) + 1)
   }, [broadcast.media_url]) // eslint-disable-line
 
-  const handlePlayItem = (item) => sendAction({ action: 'enqueue', playlist_item_id: item.id })
+  const handlePlayItem = (item) => {
+    const idx = (selectedPlaylist?.items ?? []).findIndex(it => it.id === item.id)
+    onEnqueuedIndex?.(selectedPlaylist, idx)
+    sendAction({ action: 'enqueue', playlist_item_id: item.id })
+  }
   const handlePlayNext = () => sendAction({ action: 'play_next' })
 
   if (playlists.length === 0) return (
