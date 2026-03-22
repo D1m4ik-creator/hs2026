@@ -23,6 +23,8 @@ services:
       context: ./api
       dockerfile: Dockerfile
     container_name: api_ttkbroadcasting
+    volumes:
+      - ./media:/api/media
     env_file:
       - ./api/api/.env
     depends_on:
