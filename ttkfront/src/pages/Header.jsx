@@ -4,31 +4,33 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 
-function Header(param){
+function Header(param) {
     const token = localStorage.getItem('token');
     const [user, userSet] = useState()
 
-    useEffect(() => {fetch('http://localhost:8000/api/me/', {
-    method: 'GET',
-    headers: {
-        'accept': 'application/json',
-        'Authorization': `Bearer ${token}`
-    }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        userSet(data);
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });}, [token])
+    useEffect(() => {
+        fetch('http://localhost:7000/api/me/', {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            userSet(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }, [token])
 
-    const avatarUrl = user?.avatar ? `http://localhost:8000${user.avatar}` : null;
+    const avatarUrl = user?.avatar ? `http://localhost:7000${user.avatar}` : null;
     const userFullName = user?.full_name ? user.full_name : null;
 
     const logout = () => {
@@ -38,13 +40,13 @@ function Header(param){
 
     const [tab, setTab] = useState('broadcast') // broadcast | playlists
 
-    return(
+    return (
         <div className="container container-header">
             <Link to="/host"><img src={logoImage} id='logo-header' /></Link>
             <nav>
                 <a href="#" onClick={() => setTab('broadcast')}>Эфир</a>
-                <a href="#" onClick={() => setTab('playlists')} style={{marginLeft: "30px"}}>Плейлисты</a>
-                
+                <a href="#" onClick={() => setTab('playlists')} style={{ marginLeft: "30px" }}>Плейлисты</a>
+
             </nav>
             <div id='user-header-container'>
                 <img src={avatarUrl} id='user-avatar-header' />

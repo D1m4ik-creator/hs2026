@@ -13,7 +13,7 @@ function Registration() {
 
 
     const handleClick = () => {
-        if(fileInputRef){
+        if (fileInputRef) {
             fileInputRef.current.click();
         }
     };
@@ -41,41 +41,42 @@ function Registration() {
         setPasswordConfirm(event.target.value);
     }
 
-    function handlePhoto(event){
+    function handlePhoto(event) {
         setPhoto(event.target.files[0]);
         setPreview(URL.createObjectURL(event.target.files[0]));
     }
 
-    function buttonSubmit(){
+    function buttonSubmit() {
         const formData = new FormData();
         formData.append('login', login);
         formData.append('full_name', fullName);
         formData.append('password', password);
         formData.append('password_confirm', password_confirm);
-        
+
         // Добавляем файл, если он выбран
         if (photoFile) {
             formData.append('avatar', photoFile);
         }
 
-        fetch('http://127.0.0.1:8000/api/register/', {
+        fetch('http://127.0.0.1:7000/api/register/', {
             method: 'POST',
+
             // Не указываем Content-Type - браузер сам установит его с boundary
             body: formData
         })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Success:', data);
-            navigate('/'); // Переход после успешной регистрации
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                navigate('/'); // Переход после успешной регистрации
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
         // navigate('/')
     }
 
@@ -93,7 +94,7 @@ function Registration() {
                     <form action={() => buttonSubmit()}>
 
                         <div id='input_file_name'>
-                            <input type="file" ref={fileInputRef} style={{display: "none"}} onChange={handlePhoto}/>
+                            <input type="file" ref={fileInputRef} style={{ display: "none" }} onChange={handlePhoto} />
                             <div onClick={handleClick} id="input_file_name_img" style={
                                 {
                                     backgroundImage: `url(${preview ? preview : photo})`,
