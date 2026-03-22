@@ -185,3 +185,55 @@ body {
     font-size: 28px;
     border-radius: 5px;
 }
+
+/* Header */
+
+.container-header{
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+#logo-header{
+    width: 256px;
+}
+
+.container-header nav {
+    display: flex;
+    align-items: center;
+}
+
+.container-header nav a {
+    color: white;
+    text-decoration: none;
+    font-family: "Bebas Neue Cyrillic";
+    font-size: 18px;
+}
+
+#user-header-container {
+    display: flex;
+    align-items: center;
+    font-family: "Bebas Neue Cyrillic";
+    color: #ffffff80;
+}
+
+#user-header-container p {
+    font-family: "Bebas Neue Cyrillic";
+    margin-left: 10px;
+    font-size: 14px;
+}
+
+#exit-b-header {
+    background: none;
+    border: 0;
+    font-family: "Bebas Neue Cyrillic";
+    color: #ffffff80;
+    font-size: 14px;
+    margin-left: 5px;
+    cursor: pointer;
+}
+
+#user-avatar-header {
+    width: 50px;
+    border-radius: 50%;
+}
