@@ -39,7 +39,7 @@ function Auth(){
             if (roles.includes('host') || roles.includes('admin')) {
                 navigate('/host')
             } else {
-                navigate('/')
+                navigate('/listener')
             }
         } catch (err) {
             console.error(err);
